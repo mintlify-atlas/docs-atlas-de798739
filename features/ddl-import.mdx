@@ -1,0 +1,572 @@
+---
+title: 'DDL Import'
+description: 'Import database schemas from SQL DDL scripts with full support for multiple dialects'
+icon: 'code'
+---
+
+DDL (Data Definition Language) Import allows you to paste SQL CREATE TABLE statements and have ChartDB automatically parse and visualize your database schema. This is the most flexible import method, supporting multiple SQL dialects.
+
+## Overview
+
+The DDL import system uses sophisticated SQL parsing to extract:
+
+- Table definitions
+- Column types and constraints
+- Primary keys and foreign keys
+- Indexes (including composite indexes)
+- Check constraints
+- Default values
+- Comments
+- Views
+- Enum types
+- Alter table statements
+
+## Supported SQL Dialects
+
+ChartDB includes specialized parsers for different SQL dialects:
+
+<CardGroup cols={2}>
+  <Card title="PostgreSQL" icon="elephant">
+    Full PostgreSQL syntax including arrays, custom types, and extensions
+  </Card>
+  <Card title="MySQL" icon="database">
+    MySQL and MariaDB with engine specifications and charset
+  </Card>
+  <Card title="SQL Server" icon="microsoft">
+    T-SQL syntax with SQL Server-specific features
+  </Card>
+  <Card title="Oracle" icon="circle-nodes">
+    Oracle PL/SQL DDL statements
+  </Card>
+  <Card title="SQLite" icon="hard-drive">
+    SQLite syntax with virtual tables and triggers
+  </Card>
+  <Card title="Generic SQL" icon="database">
+    Standard SQL for other databases
+  </Card>
+</CardGroup>
+
+## PostgreSQL DDL Import
+
+ChartDB's PostgreSQL parser is the most comprehensive, supporting advanced PostgreSQL features.
+
+### Basic Table Import
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Advanced PostgreSQL Features
+
+<Tabs>
+  <Tab title="Array Types">
+    PostgreSQL array types are fully supported:
+    
+    ```sql
+    CREATE TABLE posts (
+        id SERIAL PRIMARY KEY,
+        tags TEXT[],
+        categories VARCHAR(50)[],
+        metadata JSONB
+    );
+    ```
+    
+    Arrays are imported with `isArray: true` attribute.
+  </Tab>
+
+  <Tab title="Custom Types & Enums">
+    Enum definitions are parsed and imported:
+    
+    ```sql
+    CREATE TYPE order_status AS ENUM (
+        'pending',
+        'processing',
+        'shipped',
+        'delivered',
+        'cancelled'
+    );
+
+    CREATE TABLE orders (
+        id SERIAL PRIMARY KEY,
+        status order_status DEFAULT 'pending'
+    );
+    ```
+  </Tab>
+
+  <Tab title="Check Constraints">
+    Both inline and table-level check constraints:
+    
+    ```sql
+    CREATE TABLE products (
+        id SERIAL PRIMARY KEY,
+        price DECIMAL(10,2) CHECK (price > 0),
+        quantity INT CHECK (quantity >= 0),
+        CONSTRAINT valid_product CHECK (price > 0 OR quantity = 0)
+    );
+    ```
+  </Tab>
+
+  <Tab title="Composite Keys">
+    Multi-column primary keys and indexes:
+    
+    ```sql
+    CREATE TABLE order_items (
+        order_id INT,
+        product_id INT,
+        quantity INT,
+        PRIMARY KEY (order_id, product_id),
+        FOREIGN KEY (order_id) REFERENCES orders(id),
+        FOREIGN KEY (product_id) REFERENCES products(id)
+    );
+    ```
+  </Tab>
+
+  <Tab title="Index Types">
+    Specialized PostgreSQL index types:
+    
+    ```sql
+    -- B-tree index (default)
+    CREATE INDEX idx_users_email ON users(email);
+
+    -- GIN index for arrays/JSONB
+    CREATE INDEX idx_posts_tags ON posts USING GIN(tags);
+
+    -- GIST index for spatial data
+    CREATE INDEX idx_locations_coords ON locations USING GIST(coordinates);
+
+    -- Partial index
+    CREATE INDEX idx_active_users ON users(email) WHERE active = true;
+    ```
+  </Tab>
+
+  <Tab title="Schemas">
+    Multi-schema support:
+    
+    ```sql
+    CREATE SCHEMA IF NOT EXISTS public;
+    CREATE SCHEMA accounting;
+
+    CREATE TABLE public.users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100)
+    );
+
+    CREATE TABLE accounting.invoices (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES public.users(id)
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### ALTER TABLE Support
+
+PostgreSQL ALTER TABLE statements are fully parsed:
+
+<CodeGroup>
+
+```sql Add Columns
+ALTER TABLE users 
+ADD COLUMN phone VARCHAR(20),
+ADD COLUMN address TEXT;
+```
+
+```sql Modify Columns
+ALTER TABLE users
+ALTER COLUMN email TYPE VARCHAR(320),
+ALTER COLUMN created_at SET NOT NULL,
+ALTER COLUMN status SET DEFAULT 'active';
+```
+
+```sql Add Constraints
+ALTER TABLE orders
+ADD CONSTRAINT fk_user_id 
+    FOREIGN KEY (user_id) REFERENCES users(id),
+ADD CONSTRAINT check_total 
+    CHECK (total_amount >= 0);
+```
+
+```sql Drop Constraints
+ALTER TABLE orders
+DROP CONSTRAINT IF EXISTS fk_old_user_id,
+DROP COLUMN deprecated_field;
+```
+
+</CodeGroup>
+
+## MySQL DDL Import
+
+MySQL syntax is fully supported with dialect-specific features:
+
+```sql
+CREATE TABLE `users` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
+  `status` ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_email` (`email`),
+  CONSTRAINT `chk_email` CHECK (`email` LIKE '%@%')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### MySQL-Specific Features
+
+<AccordionGroup>
+  <Accordion title="Storage Engines">
+    Engine specifications are recognized:
+    ```sql
+    ENGINE=InnoDB
+    ENGINE=MyISAM
+    ENGINE=MEMORY
+    ```
+  </Accordion>
+
+  <Accordion title="Character Sets">
+    Charset and collation settings:
+    ```sql
+    DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ```
+  </Accordion>
+
+  <Accordion title="Auto Increment">
+    AUTO_INCREMENT columns are marked with `increment: true`:
+    ```sql
+    id BIGINT AUTO_INCREMENT PRIMARY KEY
+    ```
+  </Accordion>
+
+  <Accordion title="Backtick Quoting">
+    MySQL backtick identifiers are properly handled:
+    ```sql
+    CREATE TABLE `order-items` (
+      `order-id` INT,
+      `product-id` INT
+    );
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## SQL Server DDL Import
+
+T-SQL syntax with SQL Server-specific features:
+
+```sql
+CREATE TABLE [dbo].[Users] (
+    [Id] INT IDENTITY(1,1) PRIMARY KEY,
+    [Email] NVARCHAR(255) NOT NULL,
+    [CreatedAt] DATETIME2 DEFAULT GETDATE(),
+    [Status] VARCHAR(20) CHECK ([Status] IN ('Active', 'Inactive')),
+    CONSTRAINT [UQ_Email] UNIQUE ([Email])
+);
+
+CREATE NONCLUSTERED INDEX [IX_Users_Email]
+ON [dbo].[Users] ([Email]);
+```
+
+### T-SQL Features
+
+- `IDENTITY(seed, increment)` columns
+- `NVARCHAR` and `NCHAR` Unicode types
+- Bracketed identifiers `[table_name]`
+- `GETDATE()`, `NEWID()` functions
+- `DATETIME2`, `DATETIMEOFFSET` types
+
+## Oracle DDL Import
+
+Oracle PL/SQL DDL statements:
+
+```sql
+CREATE TABLE employees (
+    employee_id NUMBER PRIMARY KEY,
+    email VARCHAR2(255) NOT NULL,
+    hire_date DATE DEFAULT SYSDATE,
+    salary NUMBER(10,2) CHECK (salary > 0),
+    department_id NUMBER,
+    CONSTRAINT fk_dept FOREIGN KEY (department_id) 
+        REFERENCES departments(department_id)
+);
+
+CREATE SEQUENCE emp_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE INDEX idx_emp_email ON employees(email);
+```
+
+### Oracle-Specific Features
+
+- `VARCHAR2` and `NUMBER` types
+- `SEQUENCES` for auto-increment
+- `SYSDATE` and other Oracle functions
+- PL/SQL block syntax handling
+
+## Preprocessing and Cleanup
+
+The DDL importer includes sophisticated preprocessing:
+
+<Steps>
+  <Step title="Comment Removal">
+    Multi-line `/* */` and single-line `--` comments are stripped:
+    
+    ```typescript
+    // Remove multi-line comments
+    cleanedSQL = cleanedSQL.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Remove single-line comments (preserving strings)
+    // Comments in strings are protected
+    ```
+  </Step>
+
+  <Step title="Statement Splitting">
+    SQL is split into individual statements by semicolons, accounting for:
+    - Quoted strings
+    - Function bodies ($$, $BODY$)
+    - Nested blocks
+  </Step>
+
+  <Step title="Statement Categorization">
+    Each statement is categorized:
+    
+    ```typescript
+    type StatementType = 
+        | 'table'
+        | 'view'
+        | 'index'
+        | 'alter'
+        | 'function'
+        | 'type'
+        | 'comment';
+    ```
+  </Step>
+
+  <Step title="Parser Selection">
+    The appropriate dialect parser is selected based on database type.
+  </Step>
+</Steps>
+
+## Foreign Key Parsing
+
+Foreign keys are extracted from multiple sources:
+
+<Tabs>
+  <Tab title="Inline Constraints">
+    ```sql
+    CREATE TABLE posts (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id)
+    );
+    ```
+  </Tab>
+
+  <Tab title="Table-Level Constraints">
+    ```sql
+    CREATE TABLE posts (
+        id SERIAL PRIMARY KEY,
+        user_id INT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    ```
+  </Tab>
+
+  <Tab title="Named Constraints">
+    ```sql
+    CREATE TABLE posts (
+        id SERIAL PRIMARY KEY,
+        user_id INT,
+        CONSTRAINT fk_posts_user 
+            FOREIGN KEY (user_id) 
+            REFERENCES users(id)
+            ON DELETE CASCADE
+    );
+    ```
+  </Tab>
+
+  <Tab title="ALTER TABLE">
+    ```sql
+    ALTER TABLE posts
+    ADD CONSTRAINT fk_posts_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id);
+    ```
+  </Tab>
+</Tabs>
+
+## View Support
+
+Views are imported as special tables:
+
+```sql
+CREATE VIEW active_users AS
+SELECT id, email, created_at
+FROM users
+WHERE status = 'active';
+
+-- Materialized views (PostgreSQL)
+CREATE MATERIALIZED VIEW user_stats AS
+SELECT 
+    u.id,
+    COUNT(o.id) as order_count,
+    SUM(o.total) as total_spent
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id;
+```
+
+Views are marked with `isView: true` and positioned separately on the canvas.
+
+## Complex Import Example
+
+<CodeGroup>
+
+```sql Complete Schema
+-- Create enum type
+CREATE TYPE user_role AS ENUM ('admin', 'user', 'guest');
+
+-- Create main tables
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    role user_role DEFAULT 'user',
+    tags TEXT[],
+    settings JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT valid_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$')
+);
+
+CREATE TABLE posts (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    published BOOLEAN DEFAULT false,
+    view_count INT DEFAULT 0 CHECK (view_count >= 0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE comments (
+    id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_published ON posts(published) WHERE published = true;
+CREATE INDEX idx_comments_post ON comments(post_id);
+CREATE INDEX idx_users_tags ON users USING GIN(tags);
+
+-- Create view
+CREATE VIEW recent_posts AS
+SELECT p.id, p.title, u.email as author_email, p.created_at
+FROM posts p
+JOIN users u ON u.id = p.user_id
+WHERE p.created_at > NOW() - INTERVAL '7 days';
+```
+
+```typescript Import Result
+// This DDL creates a diagram with:
+// - 3 tables (users, posts, comments)
+// - 1 enum type (user_role)
+// - 3 relationships (posts->users, comments->posts, comments->users)
+// - 5 indexes (including GIN and partial indexes)
+// - 1 view (recent_posts)
+// - Multiple check constraints
+// - Array field (tags)
+// - JSONB field (settings)
+```
+
+</CodeGroup>
+
+## Error Handling and Validation
+
+The DDL parser includes robust error handling:
+
+<Warning>
+Unsupported statements (triggers, functions, policies) are skipped with warnings but don't break the import process.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Syntax Error Recovery">
+    If a statement fails to parse, the error is logged but other statements continue processing.
+  </Accordion>
+
+  <Accordion title="Type Mapping">
+    Unknown data types are preserved as-is and can be edited in the diagram editor.
+  </Accordion>
+
+  <Accordion title="Constraint Validation">
+    Check constraint expressions are validated before import:
+    
+    ```typescript
+    const validationResult = validateCheckConstraintWithDetails(expression);
+    if (!validationResult.isValid) {
+        throw new DBMLValidationError(validationResult.error);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Circular Dependencies">
+    Foreign key cycles are detected and handled gracefully.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+For best import results:
+
+1. Include schema definitions (`CREATE SCHEMA`) before table definitions
+2. Define referenced tables before tables with foreign keys
+3. Use consistent quoting (all quoted or all unquoted identifiers)
+4. Include constraint names for better diagram labels
+5. Add SQL comments for table and column descriptions
+</Tip>
+
+## Import Performance
+
+The DDL parser is optimized for large schemas:
+
+| Schema Size | Parse Time | Notes |
+|-------------|-----------|--------|
+| < 10 tables | < 100ms | Instant |
+| 10-50 tables | 100-500ms | Fast |
+| 50-200 tables | 0.5-2s | Good |
+| 200+ tables | 2-5s | Acceptable |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys Not Detected">
+    Ensure referenced tables are defined before the referencing table, or use ALTER TABLE statements after all tables are created.
+  </Accordion>
+
+  <Accordion title="Indexes Missing">
+    Make sure CREATE INDEX statements come after the table definitions.
+  </Accordion>
+
+  <Accordion title="Types Not Recognized">
+    Custom types must be defined before they're used in table definitions. Use CREATE TYPE statements.
+  </Accordion>
+
+  <Accordion title="Parser Fails">
+    Check for syntax errors in your DDL. Try importing smaller sections to isolate problematic statements.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="DBML Import" icon="file-code" href="/features/dbml-import">
+    Learn about DBML format
+  </Card>
+  <Card title="Export Options" icon="file-export" href="/features/export-options">
+    Export your diagram to different formats
+  </Card>
+</CardGroup>

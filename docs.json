@@ -1,122 +1,116 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "ChartDB",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#5ebb7b",
+    "light": "#eebc78",
+    "dark": "#273233"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/581d2a7b-1dec-42a8-b11d-bf4d4af5913f.jpg",
+  "logo": {
+    "light": "https://media.brand.dev/7d18ddaf-1ca8-40f8-a9fe-e5cde436b85c.png",
+    "dark": "https://media.brand.dev/7d18ddaf-1ca8-40f8-a9fe-e5cde436b85c.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/chartdb/chartdb"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/chartdb/chartdb",
+      "discord": "https://discord.gg/QeFwyWSKwC",
+      "x": "https://x.com/jonathanfishner"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/import-methods",
+              "features/smart-query",
+              "features/ddl-import",
+              "features/dbml-import",
+              "features/diagram-editor",
+              "features/export-options",
+              "features/ai-migration"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Database Support",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "databases/overview",
+              "databases/postgresql",
+              "databases/mysql",
+              "databases/sql-server",
+              "databases/mariadb",
+              "databases/sqlite",
+              "databases/clickhouse",
+              "databases/cockroachdb",
+              "databases/oracle"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/creating-diagrams",
+              "guides/editing-schema",
+              "guides/managing-relationships",
+              "guides/using-areas",
+              "guides/adding-notes",
+              "guides/keyboard-shortcuts",
+              "guides/templates"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/docker",
+              "self-hosting/configuration",
+              "self-hosting/ai-setup"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Types",
             "pages": [
-              "api-reference/introduction"
+              "api/diagram",
+              "api/database-types",
+              "api/table",
+              "api/field",
+              "api/relationship",
+              "api/index"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Import & Export",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/import-metadata",
+              "api/sql-import",
+              "api/sql-export",
+              "api/dbml"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

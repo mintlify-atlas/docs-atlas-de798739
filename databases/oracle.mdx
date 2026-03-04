@@ -1,0 +1,543 @@
+---
+title: 'Oracle Database'
+description: 'Import Oracle enterprise database schemas with comprehensive metadata extraction'
+icon: 'database'
+---
+
+ChartDB provides support for Oracle Database, the enterprise-grade relational database management system.
+
+## Overview
+
+Oracle Database is a multi-model database management system with:
+- Enterprise-level reliability
+- Advanced security features
+- High performance and scalability
+- Comprehensive SQL support
+- Multi-schema architecture
+
+ChartDB's Oracle support focuses on metadata extraction and schema visualization.
+
+## Smart Query Import
+
+The Oracle Smart Query uses data dictionary views and JSON functions for metadata extraction.
+
+### Oracle Query
+
+```sql
+----------------------------------------------------------------------------
+-- 1.  FOREIGN-KEY METADATA
+----------------------------------------------------------------------------
+WITH fk_info AS (
+	SELECT JSON_OBJECT(
+	       KEY 'schema'            VALUE a.owner,
+	       KEY 'table'             VALUE a.table_name,
+	       KEY 'column'            VALUE b.column_name,
+	       KEY 'foreign_key_name'  VALUE a.constraint_name,
+	       KEY 'reference_schema'  VALUE c.owner,
+	       KEY 'reference_table'   VALUE c.table_name,
+	       KEY 'reference_column'  VALUE d.column_name,
+	       KEY 'fk_def'            VALUE
+	            'FOREIGN KEY ('||b.column_name||') REFERENCES '||
+	            c.table_name||'('||d.column_name||') ON DELETE '||
+	            DECODE(a.delete_rule,
+	                   'CASCADE' , 'CASCADE' ,
+	                   'SET NULL', 'SET NULL',
+	                   'RESTRICT', 'RESTRICT',
+	                   'NO ACTION')
+	       RETURNING CLOB
+	     ) AS json_data
+	FROM   all_constraints     a
+	JOIN   all_cons_columns    b
+	     ON  b.owner = a.owner
+	    AND b.constraint_name = a.constraint_name
+	JOIN   all_constraints     c
+	     ON  c.owner = a.r_owner
+	    AND c.constraint_name = a.r_constraint_name
+	JOIN   all_cons_columns    d
+	     ON  d.owner = c.owner
+	    AND d.constraint_name = c.constraint_name
+	    AND d.position        = b.position
+	WHERE  a.constraint_type = 'R'
+	AND    a.owner           = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+),
+
+/* ==============================================================
+2.  PRIMARY-KEY METADATA
+==============================================================*/
+pk_info AS (
+	SELECT JSON_OBJECT(
+	       KEY 'schema' VALUE a.owner,
+	       KEY 'table'  VALUE a.table_name,
+	       KEY 'column' VALUE LISTAGG(b.column_name, ', ')
+	                        WITHIN GROUP (ORDER BY b.position),
+	       KEY 'pk_def' VALUE 'PRIMARY KEY ('||
+	                         LISTAGG(b.column_name, ', ')
+	                           WITHIN GROUP (ORDER BY b.position)||')'
+	       RETURNING CLOB
+	     ) AS json_data
+	FROM   all_constraints  a
+	JOIN   all_cons_columns b
+	     ON b.owner            = a.owner
+	    AND b.constraint_name  = a.constraint_name
+	WHERE  a.constraint_type = 'P'
+	AND    a.owner           = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+	GROUP  BY a.owner, a.table_name
+),
+
+/* ==============================================================
+3.  COLUMN METADATA
+==============================================================*/
+cols AS (
+	SELECT JSON_OBJECT(
+	       KEY 'schema'                   VALUE owner,
+	       KEY 'table'                    VALUE table_name,
+	       KEY 'name'                     VALUE column_name,
+	       KEY 'type'                     VALUE LOWER(data_type),
+	       KEY 'character_maximum_length' VALUE CASE
+	                                              WHEN data_type LIKE '%CHAR%'
+	                                              THEN TO_CHAR(char_length)
+	                                            END,
+	       KEY 'precision'                VALUE CASE
+	                                              WHEN data_type IN ('NUMBER','FLOAT','DECIMAL')
+	                                              THEN JSON_OBJECT(
+	                                                     KEY 'precision' VALUE data_precision,
+	                                                     KEY 'scale'     VALUE data_scale)
+	                                            END,
+	       KEY 'ordinal_position'         VALUE column_id,
+	       KEY 'nullable'                 VALUE CASE nullable
+	                                            WHEN 'Y' THEN 'true' ELSE 'false' END FORMAT JSON,
+	       KEY 'default'                  VALUE '""' FORMAT JSON,
+	       KEY 'collation'                VALUE '""' FORMAT JSON
+	       RETURNING CLOB
+	     ) AS json_data
+	FROM   all_tab_columns
+	WHERE  owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+),
+
+/* ==============================================================
+4.  INDEX METADATA
+==============================================================*/
+indexes AS (
+	SELECT JSON_OBJECT(
+	         KEY 'schema'          VALUE i.owner,
+	         KEY 'table'           VALUE i.table_name,
+	         KEY 'name'            VALUE i.index_name,
+	         KEY 'size'            VALUE -1,
+	         KEY 'column'          VALUE c.column_name,
+	         KEY 'index_type'      VALUE LOWER(i.index_type),
+	         KEY 'cardinality'     VALUE 0,
+	         KEY 'direction'       VALUE CASE c.descend WHEN 'DESC' THEN 'desc' ELSE 'asc' END,
+	         KEY 'column_position' VALUE c.column_position,
+	         /* boolean → use FORMAT JSON so true/false are not quoted */
+	         KEY 'unique'          VALUE CASE i.uniqueness WHEN 'UNIQUE' THEN 'true' ELSE 'false' END FORMAT JSON
+	         RETURNING CLOB
+	       ) AS json_data
+	FROM   all_indexes      i
+	JOIN   all_ind_columns  c
+	       ON  c.index_owner = i.owner
+	      AND c.index_name  = i.index_name
+	WHERE  i.owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+),
+
+/* ==============================================================
+5.  TABLE & VIEW METADATA
+==============================================================*/
+tbls AS (
+	SELECT JSON_OBJECT(
+	       KEY 'schema'    VALUE owner,
+	       KEY 'table'     VALUE table_name,
+	       KEY 'rows'      VALUE num_rows,
+	       KEY 'type'      VALUE 'TABLE',
+	       KEY 'engine'    VALUE '""' FORMAT JSON,
+	       KEY 'collation' VALUE '""' FORMAT JSON
+	       RETURNING CLOB
+	     ) AS json_data
+	FROM   all_tables
+	WHERE  owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+),
+views AS (
+	SELECT JSON_OBJECT(
+	         KEY 'schema'          VALUE owner,
+	         KEY 'view_name'       VALUE view_name,
+	         /* JSON literal for empty string */
+	         KEY 'view_definition' VALUE '""' FORMAT JSON
+	         RETURNING CLOB
+	       ) AS json_data
+	FROM   all_views
+	WHERE  owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')
+)
+
+/* ==============================================================
+6.  COMPOSE THE FINAL JSON DOCUMENT
+==============================================================*/
+SELECT JSON_OBJECT(
+     KEY 'fk_info'       VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM fk_info),
+     KEY 'pk_info'       VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM pk_info),
+     KEY 'columns'       VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM cols),
+     KEY 'indexes'       VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM indexes),
+     KEY 'tables'        VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM tbls),
+     KEY 'views'         VALUE (SELECT JSON_ARRAYAGG(json_data RETURNING CLOB) FROM views),
+     KEY 'schema'        VALUE SYS_CONTEXT('USERENV','CURRENT_SCHEMA'),
+     KEY 'database_name' VALUE SYS_CONTEXT('USERENV','DB_NAME'),
+     KEY 'version' 		 VALUE SYS_CONTEXT('USERENV','DB_NAME')
+     RETURNING CLOB
+   ) AS metadata_json_to_import
+FROM   dual;
+```
+
+### What the Smart Query Retrieves
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys (fk_info)">
+    - Schema (owner) and table names
+    - Column names from `all_cons_columns`
+    - Foreign key constraint names
+    - Referenced schema, table, and column
+    - Delete rules (CASCADE, SET NULL, RESTRICT, NO ACTION)
+    - Full FK definitions
+    - Uses `all_constraints` where `constraint_type = 'R'`
+  </Accordion>
+
+  <Accordion title="Primary Keys (pk_info)">
+    - Schema (owner) and table names
+    - Column names (using LISTAGG for composite keys)
+    - Primary key definitions
+    - Uses `all_constraints` where `constraint_type = 'P'`
+    - Ordered by column position
+  </Accordion>
+
+  <Accordion title="Columns (cols)">
+    - Schema (owner), table, and column names
+    - Data types (converted to lowercase)
+    - Character maximum length (for CHAR, VARCHAR, etc.)
+    - Numeric precision and scale (for NUMBER, FLOAT, DECIMAL)
+    - Ordinal position (column_id)
+    - Nullable constraints
+    - From `all_tab_columns`
+  </Accordion>
+
+  <Accordion title="Indexes (indexes)">
+    - Schema (owner), table, and index names
+    - Indexed columns from `all_ind_columns`
+    - Index types (NORMAL, BITMAP, FUNCTION-BASED, etc.)
+    - Uniqueness flags
+    - Sort direction (ASC/DESC)
+    - Column positions in composite indexes
+    - Uses `all_indexes` and `all_ind_columns`
+  </Accordion>
+
+  <Accordion title="Tables (tbls)">
+    - Schema (owner) and table names
+    - Row counts (num_rows from statistics)
+    - Table type (always 'TABLE')
+    - From `all_tables`
+  </Accordion>
+
+  <Accordion title="Views">
+    - Schema (owner) and view names
+    - From `all_views`
+    - View definitions are empty (not extracted)
+  </Accordion>
+
+  <Accordion title="Current Schema Context">
+    Uses `SYS_CONTEXT('USERENV','CURRENT_SCHEMA')` to filter objects in the current schema only.
+  </Accordion>
+</AccordionGroup>
+
+## Oracle-Specific Features
+
+### Data Dictionary Views
+
+Oracle provides three levels of data dictionary views:
+
+- **USER_* views**: Objects owned by the current user
+- **ALL_* views**: Objects accessible to the current user (used by ChartDB)
+- **DBA_* views**: All objects in the database (requires DBA privileges)
+
+ChartDB uses `ALL_*` views to access metadata for the current schema.
+
+### Schema Context
+
+Oracle uses `SYS_CONTEXT('USERENV','CURRENT_SCHEMA')` to determine the active schema:
+
+```sql
+-- Set current schema
+ALTER SESSION SET CURRENT_SCHEMA = app_schema;
+
+-- Then run Smart Query to get that schema's metadata
+```
+
+### Data Types
+
+Oracle-specific data types:
+
+**Character Types**:
+- CHAR(n)
+- VARCHAR2(n) - Oracle's primary variable-length string type
+- NCHAR(n), NVARCHAR2(n) - Unicode strings
+- CLOB, NCLOB - Large character objects
+
+**Numeric Types**:
+- NUMBER(p,s) - General numeric type
+- FLOAT(p)
+- BINARY_FLOAT, BINARY_DOUBLE
+
+**Date/Time Types**:
+- DATE - Date and time (no fractional seconds)
+- TIMESTAMP(p) - Date and time with fractional seconds
+- TIMESTAMP(p) WITH TIME ZONE
+- INTERVAL YEAR TO MONTH
+- INTERVAL DAY TO SECOND
+
+**Binary Types**:
+- RAW(n)
+- BLOB - Binary large object
+
+**Special Types**:
+- XMLTYPE - XML documents
+- JSON - JSON documents (Oracle 21c+)
+- ROWID - Physical row address
+- UROWID - Universal row ID
+
+### Sequences
+
+Oracle uses sequences for auto-increment:
+
+```sql
+CREATE SEQUENCE user_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE;
+
+CREATE TABLE users (
+    id NUMBER PRIMARY KEY,
+    email VARCHAR2(255)
+);
+
+-- Use in insert
+INSERT INTO users (id, email) 
+VALUES (user_id_seq.NEXTVAL, 'user@example.com');
+```
+
+Oracle 12c+ supports identity columns:
+
+```sql
+CREATE TABLE users (
+    id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR2(255)
+);
+```
+
+### Indexes
+
+Oracle supports various index types:
+
+**B-Tree Indexes** (default):
+```sql
+CREATE INDEX idx_users_email ON users(email);
+```
+
+**Bitmap Indexes**:
+```sql
+CREATE BITMAP INDEX idx_users_status ON users(status);
+```
+
+**Function-Based Indexes**:
+```sql
+CREATE INDEX idx_users_upper_email ON users(UPPER(email));
+```
+
+**Composite Indexes**:
+```sql
+CREATE INDEX idx_users_name ON users(last_name, first_name);
+```
+
+### Constraints
+
+Oracle constraint syntax:
+
+```sql
+CREATE TABLE employees (
+    emp_id NUMBER CONSTRAINT emp_id_pk PRIMARY KEY,
+    email VARCHAR2(255) CONSTRAINT email_unique UNIQUE,
+    dept_id NUMBER CONSTRAINT dept_fk REFERENCES departments(dept_id),
+    salary NUMBER CONSTRAINT salary_check CHECK (salary > 0),
+    hire_date DATE CONSTRAINT hire_date_nn NOT NULL
+);
+```
+
+### Tablespaces
+
+Oracle organizes data into tablespaces:
+
+```sql
+CREATE TABLE large_table (
+    id NUMBER PRIMARY KEY,
+    data CLOB
+) TABLESPACE app_data;
+```
+
+<Note>
+Tablespace information is not captured by the Smart Query but can be queried from `all_tables`.
+</Note>
+
+## SQL Import/Export Limitations
+
+ChartDB's Oracle support has some limitations:
+
+<Warning>
+Oracle SQL syntax is complex and proprietary. ChartDB provides:
+- Metadata extraction via Smart Query
+- Schema visualization
+- Limited SQL import (basic CREATE TABLE)
+- No SQL export (Oracle-specific syntax not fully supported)
+</Warning>
+
+### What Works
+- Importing metadata via Smart Query
+- Visualizing table structures
+- Understanding primary keys and foreign keys
+- Viewing indexes and constraints
+
+### What Has Limited Support
+- Complex Oracle CREATE TABLE syntax
+- Tablespace specifications
+- Partitioning clauses
+- Storage parameters
+- Advanced constraints (deferred, initially deferred)
+- Triggers and procedures
+
+## Best Practices
+
+<Steps>
+  <Step title="Set appropriate schema">
+    Use `ALTER SESSION SET CURRENT_SCHEMA` before running the Smart Query
+  </Step>
+  
+  <Step title="Use VARCHAR2 instead of VARCHAR">
+    VARCHAR2 is Oracle's recommended variable-length string type
+  </Step>
+  
+  <Step title="Leverage identity columns">
+    Use GENERATED AS IDENTITY (Oracle 12c+) instead of manual sequences where possible
+  </Step>
+  
+  <Step title="Name your constraints">
+    Always provide constraint names for better error messages and management
+  </Step>
+  
+  <Step title="Update statistics">
+    Run `DBMS_STATS.GATHER_SCHEMA_STATS` regularly for accurate row counts
+  </Step>
+</Steps>
+
+## Common Use Cases
+
+### Schema Documentation
+
+Use ChartDB to:
+- Extract and visualize Oracle database schemas
+- Generate data dictionaries
+- Document table relationships
+- Export to ERD diagrams
+
+### Migration Planning
+
+Plan migrations from Oracle to other databases:
+1. Extract schema with Smart Query
+2. Visualize in ChartDB
+3. Identify Oracle-specific features
+4. Export to target database (PostgreSQL, MySQL, etc.)
+5. Manual adjustment for incompatible features
+
+### Schema Review
+
+Review and optimize database designs:
+- Identify missing indexes
+- Review foreign key relationships
+- Analyze table structures
+- Document schema changes
+
+## Data Type Mapping
+
+When migrating from Oracle to other databases:
+
+| Oracle Type | PostgreSQL | MySQL | SQL Server |
+|------------|------------|-------|------------|
+| VARCHAR2(n) | VARCHAR(n) | VARCHAR(n) | NVARCHAR(n) |
+| NUMBER(p,s) | NUMERIC(p,s) | DECIMAL(p,s) | DECIMAL(p,s) |
+| NUMBER | NUMERIC | DECIMAL(65,0) | DECIMAL(38,0) |
+| DATE | TIMESTAMP | DATETIME | DATETIME2 |
+| TIMESTAMP | TIMESTAMP | DATETIME(6) | DATETIME2(7) |
+| CLOB | TEXT | LONGTEXT | NVARCHAR(MAX) |
+| BLOB | BYTEA | LONGBLOB | VARBINARY(MAX) |
+| RAW(n) | BYTEA | VARBINARY(n) | VARBINARY(n) |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Permission denied errors">
+    Ensure your user has SELECT permissions on:
+    - `all_constraints`
+    - `all_cons_columns`
+    - `all_tab_columns`
+    - `all_indexes`
+    - `all_ind_columns`
+    - `all_tables`
+    - `all_views`
+  </Accordion>
+
+  <Accordion title="No tables returned">
+    Check that you're querying the correct schema:
+    ```sql
+    SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM dual;
+    
+    -- Change if needed
+    ALTER SESSION SET CURRENT_SCHEMA = your_schema;
+    ```
+  </Accordion>
+
+  <Accordion title="ORA-00904: invalid identifier">
+    Ensure you're using Oracle 12c+ for JSON functions. For older versions, the query won't work.
+  </Accordion>
+
+  <Accordion title="Row count is NULL">
+    Table statistics may not be current. Gather statistics:
+    ```sql
+    EXEC DBMS_STATS.GATHER_SCHEMA_STATS('your_schema');
+    ```
+  </Accordion>
+
+  <Accordion title="Query is slow">
+    For large schemas:
+    - Add WHERE clauses to filter specific tables
+    - Run during off-peak hours
+    - Consider querying one table at a time
+  </Accordion>
+</AccordionGroup>
+
+## Oracle Versions
+
+The Smart Query requires:
+- **Oracle 12c Release 1 (12.1)** or higher for JSON functions
+- Earlier versions are not supported
+
+Recommended:
+- **Oracle 19c** or higher for best compatibility and performance
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Oracle Documentation" icon="book" href="https://docs.oracle.com/en/database/">
+    Official Oracle Database documentation
+  </Card>
+  <Card title="SQL Language Reference" icon="code" href="https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/">
+    Oracle SQL language reference
+  </Card>
+  <Card title="Data Dictionary Views" icon="table" href="https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/">
+    Reference guide for data dictionary views
+  </Card>
+  <Card title="JSON in Oracle" icon="brackets-curly" href="https://docs.oracle.com/en/database/oracle/oracle-database/19/adjsn/">
+    Using JSON in Oracle Database
+  </Card>
+</CardGroup>

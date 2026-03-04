@@ -1,0 +1,175 @@
+---
+title: 'Database Types'
+description: 'Supported database types and editions in ChartDB'
+---
+
+## DatabaseType Enum
+
+The `DatabaseType` enum defines all supported database systems in ChartDB.
+
+```typescript
+enum DatabaseType {
+    GENERIC = 'generic',
+    POSTGRESQL = 'postgresql',
+    MYSQL = 'mysql',
+    SQL_SERVER = 'sql_server',
+    MARIADB = 'mariadb',
+    SQLITE = 'sqlite',
+    CLICKHOUSE = 'clickhouse',
+    COCKROACHDB = 'cockroachdb',
+    ORACLE = 'oracle',
+}
+```
+
+## Supported Databases
+
+<ParamField path="GENERIC" type="string" default="generic">
+  Generic SQL database with standard SQL types
+</ParamField>
+
+<ParamField path="POSTGRESQL" type="string" default="postgresql">
+  PostgreSQL database with support for:
+  - JSONB, arrays, custom types
+  - Enums and composite types
+  - Advanced indexing (GIN, GIST, etc.)
+  - Check constraints
+  - Comments on tables/columns
+</ParamField>
+
+<ParamField path="MYSQL" type="string" default="mysql">
+  MySQL database with support for:
+  - Auto-increment columns
+  - Multiple storage engines
+  - Character sets and collations
+  - Inline comments
+</ParamField>
+
+<ParamField path="SQL_SERVER" type="string" default="sql_server">
+  Microsoft SQL Server with support for:
+  - Identity columns
+  - Unique identifiers (GUID)
+  - NVARCHAR and Unicode types
+  - Extended properties for comments
+</ParamField>
+
+<ParamField path="MARIADB" type="string" default="mariadb">
+  MariaDB database (MySQL fork) with similar features to MySQL
+</ParamField>
+
+<ParamField path="SQLITE" type="string" default="sqlite">
+  SQLite embedded database with support for:
+  - Simple type system
+  - Autoincrement
+  - Limited ALTER TABLE support
+</ParamField>
+
+<ParamField path="CLICKHOUSE" type="string" default="clickhouse">
+  ClickHouse columnar database
+</ParamField>
+
+<ParamField path="COCKROACHDB" type="string" default="cockroachdb">
+  CockroachDB (PostgreSQL-compatible) with similar features to PostgreSQL
+</ParamField>
+
+<ParamField path="ORACLE" type="string" default="oracle">
+  Oracle Database with support for:
+  - VARCHAR2, NUMBER types
+  - Sequences
+  - PL/SQL
+</ParamField>
+
+## DatabaseEdition Enum
+
+Specific editions or variants of database types for platform-specific features.
+
+```typescript
+enum DatabaseEdition {
+    // PostgreSQL
+    POSTGRESQL_SUPABASE = 'supabase',
+    POSTGRESQL_TIMESCALE = 'timescale',
+
+    // MySQL
+    MYSQL_5_7 = 'mysql_5_7',
+
+    // SQL Server
+    SQL_SERVER_2016_AND_BELOW = 'sql_server_2016_and_below',
+
+    // SQLite
+    SQLITE_CLOUDFLARE_D1 = 'cloudflare_d1',
+}
+```
+
+## Database Edition Mapping
+
+<ParamField path="POSTGRESQL_SUPABASE" type="string">
+  Supabase-hosted PostgreSQL with specific extensions and configurations
+</ParamField>
+
+<ParamField path="POSTGRESQL_TIMESCALE" type="string">
+  TimescaleDB extension for PostgreSQL (time-series data)
+</ParamField>
+
+<ParamField path="MYSQL_5_7" type="string">
+  MySQL version 5.7 with specific syntax compatibility
+</ParamField>
+
+<ParamField path="SQL_SERVER_2016_AND_BELOW" type="string">
+  SQL Server 2016 and earlier versions with syntax limitations
+</ParamField>
+
+<ParamField path="SQLITE_CLOUDFLARE_D1" type="string">
+  Cloudflare D1 SQLite database with specific constraints
+</ParamField>
+
+## Usage Examples
+
+### Creating a Diagram with Database Type
+
+```typescript
+import { DatabaseType, DatabaseEdition } from './database-type';
+
+const diagram: Diagram = {
+    id: 'diagram_1',
+    name: 'My Database',
+    databaseType: DatabaseType.POSTGRESQL,
+    databaseEdition: DatabaseEdition.POSTGRESQL_SUPABASE,
+    // ... other properties
+};
+```
+
+### Type-Specific Features
+
+```typescript
+// PostgreSQL supports array types
+if (databaseType === DatabaseType.POSTGRESQL) {
+    field.isArray = true; // int[], text[], etc.
+}
+
+// SQL Server uses IDENTITY for auto-increment
+if (databaseType === DatabaseType.SQL_SERVER) {
+    // Use IDENTITY(1,1) instead of SERIAL
+}
+
+// SQLite has limited type system
+if (databaseType === DatabaseType.SQLITE) {
+    // Types: INTEGER, REAL, TEXT, BLOB
+}
+```
+
+## Database Capabilities
+
+Different databases support different features:
+
+| Feature | PostgreSQL | MySQL | SQL Server | SQLite |
+|---------|-----------|-------|------------|--------|
+| Custom Types | ✅ | ❌ | ❌ | ❌ |
+| Array Types | ✅ | ❌ | ❌ | ❌ |
+| Check Constraints | ✅ | ✅ | ✅ | ✅ |
+| Comment Support | ✅ | ✅ (inline) | ✅ (extended) | ❌ |
+| Advanced Indexes | ✅ (GIN, GIST) | ❌ | ❌ | ❌ |
+
+## Related
+
+- [Diagram](/api/diagram)
+- [Import Metadata](/api/import-metadata)
+- [SQL Export](/api/sql-export)

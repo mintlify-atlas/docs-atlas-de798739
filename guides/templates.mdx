@@ -1,0 +1,699 @@
+---
+title: Templates
+description: Explore 40+ database templates from real-world applications and frameworks
+icon: 'grid'
+---
+
+## Overview
+
+ChartDB provides over 40 pre-built database templates based on real-world applications, popular frameworks, and common use cases. These templates are fully functional, editable diagrams that serve as starting points for your projects.
+
+<Info>
+  All templates are based on actual open-source projects and production database schemas. They represent battle-tested database designs used by thousands of applications.
+</Info>
+
+## Template Categories
+
+Templates are organized into several categories based on their purpose and origin.
+
+### Framework Authentication & Authorization
+
+Database schemas from popular framework authentication systems:
+
+<CardGroup cols={2}>
+  <Card title="Laravel" icon="php">
+    **Laravel Authentication**
+    
+    Laravel's default authentication system with users, password resets, and sessions.
+    
+    **Tags:** PHP, Laravel, MySQL
+  </Card>
+  
+  <Card title="Laravel Permission" icon="shield">
+    **Spatie Laravel Permission**
+    
+    Role-based access control (RBAC) system with roles, permissions, and model permissions.
+    
+    **Tags:** PHP, Laravel, MySQL
+  </Card>
+  
+  <Card title="Django" icon="python">
+    **Django Authentication**
+    
+    Django's built-in authentication system with users, groups, and permissions.
+    
+    **Tags:** Python, Django, PostgreSQL
+  </Card>
+  
+  <Card title="Devise" icon="gem">
+    **Devise (Rails)**
+    
+    Flexible authentication solution for Rails with multiple authentication strategies.
+    
+    **Tags:** Ruby, Rails, PostgreSQL
+  </Card>
+</CardGroup>
+
+#### Additional Framework Templates:
+
+- **Adonis ACL** - Access control for Adonis.js
+- **Bouncer** - Elegant authorization library for Laravel  
+- **Doorkeeper** - OAuth 2 provider for Rails
+- **Django Axes** - Keep track of failed login attempts
+
+### Content Management Systems
+
+Full-featured CMS database schemas:
+
+<CardGroup cols={2}>
+  <Card title="WordPress" icon="wordpress">
+    **WordPress Database**
+    
+    Complete WordPress schema with posts, comments, users, taxonomy, and meta tables.
+    
+    **Tables:** 12 tables including wp_posts, wp_users, wp_terms
+    
+    **Tags:** PHP, MySQL, CMS
+  </Card>
+  
+  <Card title="Flarum" icon="comments">
+    **Flarum Forum**
+    
+    Modern forum software schema with discussions, posts, users, and tags.
+    
+    **Tags:** PHP, Forum, MySQL
+  </Card>
+  
+  <Card title="BookStack" icon="book">
+    **BookStack**
+    
+    Documentation platform with books, chapters, pages, and permissions.
+    
+    **Tags:** PHP, Documentation, MySQL
+  </Card>
+  
+  <Card title="Canvas" icon="newspaper">
+    **Canvas Blog**
+    
+    Minimal publishing platform for Laravel with posts, tags, and views.
+    
+    **Tags:** PHP, Laravel, Blog
+  </Card>
+</CardGroup>
+
+### Business Applications
+
+Production-ready business application schemas:
+
+<CardGroup cols={2}>
+  <Card title="Akaunting" icon="calculator">
+    **Akaunting Accounting**
+    
+    Free accounting software schema with invoices, bills, transactions, and reports.
+    
+    **Features:** Double-entry accounting, multi-currency
+    
+    **Tags:** PHP, Accounting, MySQL
+  </Card>
+  
+  <Card title="Snipe-IT" icon="barcode">
+    **Snipe-IT Asset Management**
+    
+    IT asset management system with assets, licenses, consumables, and maintenance.
+    
+    **Tags:** PHP, Asset Management, MySQL
+  </Card>
+  
+  <Card title="Attendize" icon="ticket">
+    **Attendize Ticketing**
+    
+    Event ticketing and management platform with events, tickets, and orders.
+    
+    **Tags:** PHP, Events, MySQL
+  </Card>
+  
+  <Card title="FreeScout" icon="headset">
+    **FreeScout Help Desk**
+    
+    Help desk and shared inbox system with tickets, conversations, and customers.
+    
+    **Tags:** PHP, Support, MySQL
+  </Card>
+</CardGroup>
+
+#### Additional Business Templates:
+
+- **Ticketit** - Laravel ticketing system
+- **Staytus** - Service status page
+- **Cachet** - Status page system
+- **Deployer** - Deployment tool
+
+### E-commerce
+
+Complete e-commerce database schemas:
+
+<Card title="Sylius" icon="cart-shopping">
+  **Sylius E-commerce**
+  
+  Full-featured e-commerce platform schema with:
+  - Products, variants, and attributes
+  - Orders and shipments
+  - Customers and addresses
+  - Payments and promotions
+  - Inventory management
+  
+  **Tags:** PHP, Symfony, E-commerce, PostgreSQL
+</Card>
+
+### Personal & Productivity
+
+<CardGroup cols={2}>
+  <Card title="Monica" icon="heart">
+    **Monica CRM**
+    
+    Personal relationship management system with contacts, activities, tasks, and gifts.
+    
+    **Features:** Relationships, notes, reminders
+    
+    **Tags:** PHP, CRM, MySQL
+  </Card>
+  
+  <Card title="Koel" icon="music">
+    **Koel Music Streaming**
+    
+    Personal music streaming service with songs, albums, artists, and playlists.
+    
+    **Tags:** PHP, Music, MySQL
+  </Card>
+</CardGroup>
+
+### Social & Communication
+
+<CardGroup cols={2}>
+  <Card title="BuddyPress" icon="users">
+    **BuddyPress Social Network**
+    
+    WordPress social networking plugin with groups, messages, activities, and friendships.
+    
+    **Tags:** PHP, WordPress, Social, MySQL
+  </Card>
+  
+  <Card title="Pixelfed" icon="camera">
+    **Pixelfed Photo Sharing**
+    
+    Image sharing platform schema with posts, profiles, follows, and likes.
+    
+    **Tags:** PHP, Social Media, PostgreSQL
+  </Card>
+</CardGroup>
+
+#### Additional Social Templates:
+
+- **Talk** - Laravel real-time messaging
+- **Octobox** - GitHub notification management
+- **Feedbin** - RSS reader
+
+### Example Applications
+
+Simplified versions of popular applications:
+
+<CardGroup cols={2}>
+  <Card title="Twitter Clone" icon="twitter">
+    **Twitter Database**
+    
+    Simplified Twitter-like schema:
+    - Users and profiles
+    - Tweets and retweets
+    - Follows and followers
+    - Likes and mentions
+    
+    **Tags:** Social Media, Example Apps
+  </Card>
+  
+  <Card title="Airbnb Clone" icon="building">
+    **Airbnb Database**
+    
+    Vacation rental platform schema:
+    - Properties and listings
+    - Users and hosts
+    - Bookings and reservations
+    - Reviews and ratings
+    
+    **Tags:** Marketplace, Example Apps
+  </Card>
+  
+  <Card title="Hacker News" icon="hacker-news">
+    **Hacker News**
+    
+    News aggregator schema:
+    - Stories and submissions
+    - Comments (nested)
+    - Users and karma
+    - Votes
+    
+    **Tags:** News, Example Apps
+  </Card>
+  
+  <Card title="Lobsters" icon="newspaper">
+    **Lobsters Community**
+    
+    Technology-focused news aggregator:
+    - Stories and tags
+    - Comments and threads
+    - User invitations
+    - Moderation
+    
+    **Tags:** News, Community
+  </Card>
+</CardGroup>
+
+### Domain-Specific Templates
+
+<CardGroup cols={2}>
+  <Card title="Employee Database" icon="briefcase">
+    **Employee Management**
+    
+    HR and employee management schema:
+    - Employees and personal info
+    - Departments and managers
+    - Salaries and titles
+    - Employment history
+    - Database views for reporting
+    
+    **Tables:** 8 tables (6 tables + 2 views)
+    
+    **Tags:** MySQL, HR, Enterprise
+    
+    **Source:** MySQL sample database
+  </Card>
+  
+  <Card title="Pokemon Database" icon="gamepad">
+    **Pokemon Information System**
+    
+    Comprehensive Pokemon data schema:
+    - Pokemon and species
+    - Types and type effectiveness
+    - Moves and abilities  
+    - Evolutions
+    - Stats and habitats
+    
+    **Tables:** 19 tables (14 tables + 5 views)
+    
+    **Tags:** MySQL, Gaming, Reference
+    
+    **Source:** [Pokemon Database](https://github.com/brianr852/Pokemon-Database)
+  </Card>
+</CardGroup>
+
+### Utility & Feature Modules
+
+Specific feature implementations:
+
+<CardGroup cols={2}>
+  <Card title="Taggit" icon="tags">
+    **Django Taggit**
+    
+    Simple tagging system for Django with tags and tagged items.
+    
+    **Tags:** Python, Django, Feature
+  </Card>
+  
+  <Card title="Flipper" icon="toggle-on">
+    **Flipper Feature Flags**
+    
+    Feature flag system for Rails with gates and boolean/group/actor flags.
+    
+    **Tags:** Ruby, Rails, Feature Flags
+  </Card>
+  
+  <Card title="Reversion" icon="clock-rotate-left">
+    **Django Reversion**
+    
+    Version control for Django models with revisions and versions.
+    
+    **Tags:** Python, Django, Versioning
+  </Card>
+  
+  <Card title="Laravel Activitylog" icon="list">
+    **Spatie Activity Log**
+    
+    Activity logging for Laravel with customizable log entries.
+    
+    **Tags:** PHP, Laravel, Logging
+  </Card>
+</CardGroup>
+
+#### Additional Utility Templates:
+
+- **Pay Rails** - Payment processing for Rails
+- **Orchid** - Laravel administration platform
+- **Voyager** - Laravel admin package
+- **RefineryCMS** - Rails content management
+- **Comfortable Mexican Sofa** - Rails CMS
+
+### SaaS & Multi-tenant
+
+<Card title="SaaS Pegasus" icon="rocket">
+  **SaaS Pegasus**
+  
+  Django SaaS boilerplate schema:
+  - Multi-tenant organization structure
+  - Team and membership management  
+  - Subscription and billing
+  - Invitations and onboarding
+  
+  **Tags:** Python, Django, SaaS, PostgreSQL
+</Card>
+
+<Card title="Laravel Spark" icon="bolt">
+  **Laravel Spark**
+  
+  Laravel SaaS framework schema:
+  - Teams and team members
+  - Subscriptions and invoices
+  - API tokens
+  - Announcements
+  
+  **Tags:** PHP, Laravel, SaaS, MySQL
+</Card>
+
+### Specialized Applications
+
+<CardGroup cols={2}>
+  <Card title="Polr" icon="link">
+    **Polr URL Shortener**
+    
+    URL shortening service with links, clicks, and analytics.
+    
+    **Tags:** PHP, URL Shortener
+  </Card>
+  
+  <Card title="Screeenly" icon="camera">
+    **Screeenly Screenshots**
+    
+    Website screenshot service with screenshots, systems, and captures.
+    
+    **Tags:** PHP, Screenshots
+  </Card>
+  
+  <Card title="Cabot" icon="chart-line">
+    **Cabot Monitoring**
+    
+    Service monitoring and alerting with checks, alerts, and incidents.
+    
+    **Tags:** Python, Monitoring
+  </Card>
+  
+  <Card title="Gravity Forms" icon="wpforms">
+    **Gravity Forms**
+    
+    WordPress form builder with forms, entries, and fields.
+    
+    **Tags:** PHP, WordPress, Forms
+  </Card>
+</CardGroup>
+
+## Using Templates
+
+### Selecting a Template
+
+<Steps>
+  <Step title="Browse Templates">
+    From the ChartDB home screen or new diagram dialog:
+    - View all available templates
+    - Filter by tags or search by name
+    - Preview template screenshots
+  </Step>
+  
+  <Step title="Review Details">
+    Click on a template to see:
+    - Full description
+    - Number of tables and relationships
+    - Database type
+    - Source project URL (if available)
+    - Screenshot of the diagram
+  </Step>
+  
+  <Step title="Create from Template">
+    Click **Use Template** to:
+    - Create a new diagram based on the template
+    - All tables, fields, and relationships are copied
+    - Diagram name is set to the template name
+    - You can immediately start editing
+  </Step>
+</Steps>
+
+### Customizing Templates
+
+Templates are fully editable:
+
+<AccordionGroup>
+  <Accordion title="Add Tables">
+    Templates are starting points. Add your own tables:
+    - Right-click canvas → New Table
+    - Import additional SQL schemas
+    - Duplicate and modify existing tables
+  </Accordion>
+  
+  <Accordion title="Remove Tables">
+    Remove tables you don't need:
+    - Right-click table → Delete Table
+    - Relationships are automatically removed
+    - Simplify templates to match your use case
+  </Accordion>
+  
+  <Accordion title="Modify Fields">
+    Adjust fields to your requirements:
+    - Add/remove fields
+    - Change data types
+    - Update constraints and defaults
+    - Add comments and documentation
+  </Accordion>
+  
+  <Accordion title="Adjust Relationships">
+    Modify the relationship structure:
+    - Add new relationships
+    - Change cardinality (1:1, 1:N, N:M)
+    - Update foreign keys
+    - Remove unused relationships
+  </Accordion>
+</AccordionGroup>
+
+## Template Details
+
+### Template Structure
+
+Each template includes:
+
+```typescript
+interface Template {
+  slug: string;                  // URL-friendly identifier
+  name: string;                  // Display name
+  shortDescription: string;      // Brief summary
+  description: string;           // Full description  
+  image: string;                 // Light theme preview
+  imageDark: string;            // Dark theme preview
+  diagram: Diagram;             // Full diagram data
+  tags: string[];               // Category tags
+  featured: boolean;            // Show on home page
+  url?: string;                 // Source project URL
+}
+```
+
+### Template Data Structure
+
+Templates contain complete diagram specifications:
+
+- **Tables**: Full table definitions with fields, indexes, and constraints
+- **Relationships**: All foreign key relationships with cardinality
+- **Areas**: Visual grouping (some templates)
+- **Notes**: Documentation annotations (some templates)
+- **Database Type**: MySQL, PostgreSQL, SQLite, etc.
+- **Metadata**: Creation date, update date, diagram name
+
+### Featured Templates
+
+The following templates are featured on the home page:
+
+1. **Employee Database** - Classic HR schema
+2. **Pokemon Database** - Complex reference data
+3. **Airbnb Clone** - Marketplace platform
+4. **WordPress** - Popular CMS
+5. **Django** - Python framework auth
+6. **Laravel** - PHP framework auth
+7. **Twitter Clone** - Social network
+8. **Visual Novel** - Game database
+
+## Template Use Cases
+
+### Learning Database Design
+
+Study real-world schemas:
+
+```text
+Beginner → Employee Database
+           Simple, well-structured schema
+           Clear relationships
+           Good for learning SQL
+
+Intermediate → WordPress
+               Metadata pattern
+               Taxonomy structure
+               Polymorphic relationships
+
+Advanced → Sylius E-commerce
+           Complex business logic
+           Multi-table relationships
+           Advanced patterns
+```
+
+### Jump-starting Projects
+
+Start projects faster:
+
+<Tabs>
+  <Tab title="Authentication">
+    Use Laravel or Django auth templates as foundation:
+    1. Select Laravel/Django template
+    2. Add your domain-specific tables
+    3. Connect to auth tables
+    4. Export SQL and deploy
+  </Tab>
+  
+  <Tab title="E-commerce">
+    Build on Sylius template:
+    1. Start with Sylius schema
+    2. Remove unneeded features
+    3. Add custom product attributes
+    4. Implement business rules
+  </Tab>
+  
+  <Tab title="Content Management">
+    Leverage WordPress or Flarum:
+    1. Choose CMS template
+    2. Customize post types
+    3. Add domain tables
+    4. Integrate with existing schema
+  </Tab>
+</Tabs>
+
+### Understanding Frameworks
+
+Learn how popular frameworks structure data:
+
+- **Laravel patterns**: Polymorphic relationships, soft deletes, timestamps
+- **Django patterns**: Generic foreign keys, through tables, permissions
+- **Rails patterns**: Join tables, STI, polymorphic associations
+
+### Database Migration Planning
+
+Plan migrations using templates:
+
+1. Load current system template (e.g., WordPress)
+2. Create copy for target system
+3. Add new schema elements
+4. Plan migration path
+5. Export migration SQL
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start Close to Your Domain">
+    Choose a template that matches your use case:
+    - Building a blog? → WordPress or Canvas
+    - Building a marketplace? → Airbnb or Sylius
+    - Building a SaaS? → Laravel Spark or SaaS Pegasus
+    
+    It's easier to modify a similar schema than start from scratch.
+  </Accordion>
+  
+  <Accordion title="Don't Follow Templates Blindly">
+    Templates are guides, not requirements:
+    - Remove what you don't need
+    - Simplify where possible
+    - Add what's missing
+    - Adapt to your specific needs
+  </Accordion>
+  
+  <Accordion title="Study Multiple Templates">
+    Compare how different systems solve similar problems:
+    - User authentication across Laravel, Django, Rails
+    - Permission systems in different frameworks
+    - E-commerce product models
+    - Content taxonomy approaches
+  </Accordion>
+  
+  <Accordion title="Document Your Changes">
+    When customizing templates:
+    - Add notes explaining modifications
+    - Document why you removed features
+    - Explain custom additions
+    - Track deviation from template
+  </Accordion>
+</AccordionGroup>
+
+## Contributing Templates
+
+<Info>
+  Want to contribute a template? ChartDB welcomes template submissions from real-world, open-source projects.
+</Info>
+
+### Template Criteria
+
+1. **Based on real project**: Must be from an actual open-source application
+2. **Well-structured**: Clean schema design with proper relationships
+3. **Documented**: Include description and source URL
+4. **Complete**: Include all core tables (can exclude auxiliary tables)
+5. **Licensed**: Ensure compatible open-source license
+
+### Submission Process
+
+<Steps>
+  <Step title="Create Diagram">
+    Build the template diagram in ChartDB:
+    - Import from project's schema
+    - Ensure all relationships are correct
+    - Add appropriate colors
+    - Position tables logically
+  </Step>
+  
+  <Step title="Export Template Data">
+    Export as ChartDB diagram format (JSON).
+  </Step>
+  
+  <Step title="Prepare Metadata">
+    Gather information:
+    - Project name and description
+    - Database type
+    - Tags and categories
+    - Source repository URL
+    - License information
+  </Step>
+  
+  <Step title="Submit">
+    Create pull request to ChartDB repository with:
+    - Template TypeScript file
+    - Preview images (light and dark)
+    - Documentation
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Diagrams" icon="plus-circle" href="/guides/creating-diagrams">
+    Learn how to create diagrams from templates
+  </Card>
+  
+  <Card title="Editing Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Customize template tables and fields
+  </Card>
+  
+  <Card title="Export Schema" icon="download" href="/features/export-options">
+    Export template schemas to SQL
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get started with ChartDB
+  </Card>
+</CardGroup>

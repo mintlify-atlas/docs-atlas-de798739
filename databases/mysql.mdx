@@ -1,0 +1,498 @@
+---
+title: 'MySQL'
+description: 'Import and export MySQL database schemas with support for various MySQL versions'
+icon: 'database'
+---
+
+ChartDB provides full support for MySQL databases, including version-specific optimizations and MySQL-specific features like AUTO_INCREMENT and storage engines.
+
+## Database Editions
+
+ChartDB supports multiple MySQL versions:
+
+- **MySQL 8.0+**: Modern query with optimized variable assignment
+- **MySQL 5.7**: Compatible query using traditional GROUP_CONCAT approach
+
+## Smart Query Import
+
+The MySQL Smart Query extracts complete schema metadata using database-specific functions.
+
+### MySQL 8.0+ Query
+
+```sql
+WITH fk_info as (
+(SELECT (@fk_info:=NULL),
+    (SELECT (0)
+    FROM (SELECT kcu.table_schema,
+        kcu.table_name,
+        kcu.column_name as fk_column,
+        kcu.constraint_name as foreign_key_name,
+        kcu.referenced_table_schema as reference_schema,
+        kcu.referenced_table_name as reference_table,
+        kcu.referenced_column_name as reference_column,
+        CONCAT('FOREIGN KEY (', kcu.column_name, ') REFERENCES ',
+            kcu.referenced_table_name, '(', kcu.referenced_column_name, ') ',
+            'ON UPDATE ', rc.update_rule,
+            ' ON DELETE ', rc.delete_rule) AS fk_def
+    FROM information_schema.key_column_usage kcu
+    JOIN information_schema.referential_constraints rc
+        ON kcu.constraint_name = rc.constraint_name
+            AND kcu.table_schema = rc.constraint_schema
+        AND kcu.table_name = rc.table_name
+    WHERE kcu.referenced_table_name IS NOT NULL) as fk
+    WHERE table_schema LIKE IFNULL(NULL, '%')
+        AND table_schema = DATABASE()
+        AND (0x00) IN (@fk_info:=CONCAT_WS(',', @fk_info, CONCAT('{"schema":"',table_schema,
+                                    '","table":"',table_name,
+                                    '","column":"', IFNULL(fk_column, ''),
+                                                '","foreign_key_name":"', IFNULL(foreign_key_name, ''),
+                                                '","reference_schema":"', IFNULL(reference_schema, ''),
+                                                '","reference_table":"', IFNULL(reference_table, ''),
+                                                '","reference_column":"', IFNULL(reference_column, ''),
+                                                '","fk_def":"', IFNULL(fk_def, ''),
+                                    '"}'))))))
+),
+pk_info AS (
+    (SELECT (@pk_info:=NULL),
+              (SELECT (0)
+               FROM (SELECT TABLE_SCHEMA,
+                            TABLE_NAME AS pk_table,
+                            COLUMN_NAME AS pk_column,
+                            (SELECT CONCAT('PRIMARY KEY (', GROUP_CONCAT(inc.COLUMN_NAME ORDER BY inc.ORDINAL_POSITION SEPARATOR ', '), ')')
+                               FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE as inc
+                               WHERE inc.CONSTRAINT_NAME = 'PRIMARY' and
+                                     outc.TABLE_SCHEMA = inc.TABLE_SCHEMA and
+                             		 outc.TABLE_NAME = inc.TABLE_NAME) AS pk_def
+                       FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE as outc
+                       WHERE CONSTRAINT_NAME = 'PRIMARY'
+                       GROUP BY TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME
+                       ORDER BY TABLE_SCHEMA, TABLE_NAME, MIN(ORDINAL_POSITION)) AS pk
+               WHERE table_schema LIKE IFNULL(NULL, '%')
+               AND table_schema = DATABASE()
+               AND (0x00) IN (@pk_info:=CONCAT_WS(',', @pk_info, CONCAT('{"schema":"', table_schema,
+                                                                        '","table":"', pk_table,
+                                                                        '","column":"', pk_column,
+                                                                        '","pk_def":"', IFNULL(pk_def, ''),
+                                                                        '"}'))))))
+),
+cols as (
+  (SELECT (@cols := NULL),
+        (SELECT (0)
+         FROM information_schema.columns cols
+         WHERE cols.table_schema LIKE IFNULL(NULL, '%')
+           AND cols.table_schema = DATABASE()
+           AND (0x00) IN (@cols := CONCAT_WS(',', @cols, CONCAT(
+                '{"schema":"', cols.table_schema,
+                '","table":"', cols.table_name,
+                '","name":"', REPLACE(cols.column_name, '"', '\\"'),
+                '","type":"', LOWER(cols.data_type),
+                '","character_maximum_length":"', IFNULL(cols.character_maximum_length, 'null'),
+                '","precision":',
+                    CASE
+                        WHEN cols.data_type IN ('decimal', 'numeric')
+                        THEN CONCAT('{"precision":', IFNULL(cols.numeric_precision, 'null'),
+                                    ',"scale":', IFNULL(cols.numeric_scale, 'null'), '}')
+                        ELSE 'null'
+                    END,
+                ',"ordinal_position":', cols.ordinal_position,
+                ',"nullable":', IF(cols.is_nullable = 'YES', 'true', 'false'),
+                ',"default":"', IFNULL(REPLACE(REPLACE(cols.column_default, '\\\\', ''), '"', 'ֿֿֿ\\"'), ''),
+                '","collation":"', IFNULL(cols.collation_name, ''),
+                '","is_identity":', IF(cols.extra LIKE '%auto_increment%', 'true', 'false'),
+                ',"comment":"', REPLACE(REPLACE(IFNULL(cols.column_comment, ''), '"', '\\\\"'), '\\n', ' '),
+                '"}'
+            ))))))
+),
+indexes as (
+  (SELECT (@indexes:=NULL),
+                (SELECT (0)
+                 FROM information_schema.statistics indexes
+                 WHERE table_schema LIKE IFNULL(NULL, '%')
+                     AND table_schema = DATABASE()
+                     AND (0x00) IN  (@indexes:=CONCAT_WS(',', @indexes, CONCAT('{"schema":"',indexes.table_schema,
+                                         '","table":"',indexes.table_name,
+                                         '","name":"', indexes.index_name,
+                                         '","size":',
+                                                                      (SELECT IFNULL(SUM(stat_value * @@innodb_page_size), -1) AS size_in_bytes
+                                                                       FROM mysql.innodb_index_stats
+                                                                       WHERE stat_name = 'size'
+                                                                           AND index_name != 'PRIMARY'
+                                                                           AND index_name = indexes.index_name
+                                                                           AND TABLE_NAME = indexes.table_name
+                                                                           AND database_name = indexes.table_schema),
+                                                                  ',"column":"', indexes.column_name,
+                                                      '","index_type":"', LOWER(indexes.index_type),
+                                                      '","cardinality":', indexes.cardinality,
+                                                      ',"direction":"', (CASE WHEN indexes.collation = 'D' THEN 'desc' ELSE 'asc' END),
+                                                      '","column_position":', indexes.seq_in_index,
+                                                      ',"unique":', IF(indexes.non_unique = 1, 'false', 'true'), '}'))))))
+),
+tbls as (
+  (SELECT (@tbls:=NULL),
+              (SELECT (0)
+               FROM information_schema.tables tbls
+               WHERE table_schema LIKE IFNULL(NULL, '%')
+                   AND table_schema = DATABASE()
+                   AND (0x00) IN (@tbls:=CONCAT_WS(',', @tbls, CONCAT('{', '"schema":"', `TABLE_SCHEMA`, '",',
+                                               '"table":"', `TABLE_NAME`, '",',
+                                             '"rows":', IFNULL(`TABLE_ROWS`, 0),
+                                             ', "type":"', IFNULL(`TABLE_TYPE`, ''), '",',
+                                             '"engine":"', IFNULL(`ENGINE`, ''), '",',
+                                             '"collation":"', IFNULL(`TABLE_COLLATION`, ''), '",',
+                                             '"comment":"', REPLACE(REPLACE(IFNULL(`TABLE_COMMENT`, ''), '"', '\\\\"'), '\\\\n', ' '), '"}'))))))
+),
+views as (
+(SELECT (@views:=NULL),
+              (SELECT (0)
+               FROM information_schema.views views
+               WHERE table_schema LIKE IFNULL(NULL, '%')
+                   AND table_schema = DATABASE()
+                   AND (0x00) IN (@views:=CONCAT_WS(',', @views, CONCAT('{', '"schema":"', `TABLE_SCHEMA`, '",',
+                                                   '"view_name":"', `TABLE_NAME`, '",',
+                                                   '"view_definition":""}'))) ) )
+)
+(SELECT CAST(CONCAT('{"fk_info": [',IFNULL(@fk_info,''),
+                '], "pk_info": [', IFNULL(@pk_info, ''),
+            '], "columns": [',IFNULL(@cols,''),
+            '], "indexes": [',IFNULL(@indexes,''),
+            '], "tables":[',IFNULL(@tbls,''),
+            '], "views":[',IFNULL(@views,''),
+            '], "database_name": "', DATABASE(),
+            '", "version": "', VERSION(), '"}') AS CHAR) AS metadata_json_to_import
+ FROM fk_info, pk_info, cols, indexes, tbls, views);
+```
+
+<Note>
+For MySQL 5.7 compatibility, ChartDB uses `GROUP_CONCAT` instead of variable assignment. Run this before the query:
+```sql
+SET SESSION group_concat_max_len = 1000000;
+```
+</Note>
+
+### What the Smart Query Retrieves
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys (fk_info)">
+    - Schema and table names
+    - Column names
+    - Foreign key constraint names
+    - Referenced schema, table, and column
+    - Update and delete rules (CASCADE, RESTRICT, SET NULL, NO ACTION)
+    - Full FK definition string
+  </Accordion>
+
+  <Accordion title="Primary Keys (pk_info)">
+    - Schema and table names
+    - Column names (supports composite keys)
+    - Primary key definitions
+  </Accordion>
+
+  <Accordion title="Columns (cols)">
+    - Data types (normalized to lowercase)
+    - Character maximum length
+    - Numeric precision and scale (for DECIMAL, NUMERIC)
+    - Ordinal position
+    - Nullable constraints
+    - Default values
+    - Collation names
+    - AUTO_INCREMENT detection via `extra` column
+    - Column comments
+  </Accordion>
+
+  <Accordion title="Indexes (indexes)">
+    - Index names and types (BTREE, HASH, FULLTEXT, SPATIAL)
+    - Indexed columns
+    - Index size (from `mysql.innodb_index_stats`)
+    - Cardinality statistics
+    - Sort direction (ASC/DESC)
+    - Column position in composite indexes
+    - Unique constraint flags
+  </Accordion>
+
+  <Accordion title="Tables (tbls)">
+    - Schema and table names
+    - Row counts (estimated)
+    - Table type (BASE TABLE, VIEW, SYSTEM VIEW)
+    - Storage engine (InnoDB, MyISAM, etc.)
+    - Table collation
+    - Table comments
+  </Accordion>
+
+  <Accordion title="Views (views)">
+    - Schema and view names
+    - View definitions (empty in base query)
+  </Accordion>
+</AccordionGroup>
+
+## SQL Import
+
+ChartDB can parse MySQL DDL scripts with support for MySQL-specific syntax.
+
+### Supported Features
+
+- **Table Creation**: CREATE TABLE with IF NOT EXISTS
+- **Data Types**: All MySQL types including:
+  - Integer types: TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT
+  - Decimal types: DECIMAL, NUMERIC, FLOAT, DOUBLE
+  - String types: CHAR, VARCHAR, TEXT, MEDIUMTEXT, LONGTEXT
+  - Binary types: BINARY, VARBINARY, BLOB
+  - Date/time: DATE, DATETIME, TIMESTAMP, TIME, YEAR
+  - JSON (MySQL 5.7.8+)
+  - ENUM and SET types
+- **Constraints**:
+  - PRIMARY KEY (inline and table-level)
+  - FOREIGN KEY with ON DELETE/UPDATE actions
+  - UNIQUE constraints
+  - CHECK constraints (MySQL 8.0.16+)
+  - NOT NULL
+- **AUTO_INCREMENT**: Automatic sequence generation
+- **Storage Engines**: ENGINE=InnoDB, MyISAM, etc.
+- **Character Sets**: CHARACTER SET and COLLATE
+- **Table Comments**: COMMENT='description'
+- **Column Comments**: COMMENT 'description'
+- **Indexes**: CREATE INDEX and CREATE UNIQUE INDEX
+- **Views**: CREATE VIEW and CREATE OR REPLACE VIEW
+- **Databases**: Multi-database support
+
+### Import Example
+
+```sql
+CREATE DATABASE IF NOT EXISTS `app`;
+
+USE `app`;
+
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `email` VARCHAR(255) NOT NULL UNIQUE,
+    `username` VARCHAR(100) NOT NULL,
+    `status` ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+    `balance` DECIMAL(10, 2) DEFAULT 0.00,
+    `metadata` JSON,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_email` (`email`),
+    INDEX `idx_status` (`status`),
+    CONSTRAINT `chk_balance` CHECK (`balance` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User accounts';
+
+CREATE TABLE IF NOT EXISTS `posts` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL COMMENT 'Author user ID',
+    `title` VARCHAR(255) NOT NULL,
+    `content` TEXT,
+    `published` BOOLEAN DEFAULT FALSE,
+    `views` INT UNSIGNED DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_published_created` (`published`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Blog posts';
+```
+
+<Warning>
+MySQL does **not** support inline REFERENCES syntax. Always use table-level FOREIGN KEY constraints:
+
+**Incorrect:**
+```sql
+user_id BIGINT REFERENCES users(id)  -- Not supported in MySQL
+```
+
+**Correct:**
+```sql
+user_id BIGINT NOT NULL,
+FOREIGN KEY (user_id) REFERENCES users(id)
+```
+</Warning>
+
+## SQL Export
+
+Export your ChartDB diagrams to production-ready MySQL SQL.
+
+### Export Features
+
+- **Database Creation**: CREATE DATABASE IF NOT EXISTS statements
+- **Table Creation**: CREATE TABLE IF NOT EXISTS
+- **AUTO_INCREMENT**: Automatic for primary key integer columns
+- **Data Type Mapping**: Converts types to MySQL equivalents:
+  - boolean → TINYINT(1)
+  - uuid → CHAR(36)
+  - jsonb → JSON
+  - Arrays → JSON
+  - timestamp with time zone → DATETIME
+- **Comments**: Inline table and column comments
+- **Indexes**: Separate CREATE INDEX statements with:
+  - Prefix length for TEXT/BLOB columns
+  - Unique index support
+- **Constraints**:
+  - Primary keys as table constraints
+  - Foreign keys with proper references
+  - Check constraints (MySQL 8.0.16+)
+  - Unique constraints
+- **Default VARCHAR Size**: Automatically adds (255) if not specified
+- **Backtick Quoting**: Proper identifier quoting
+
+### Export Example
+
+```sql
+-- MySQL database export
+START TRANSACTION;
+
+CREATE DATABASE IF NOT EXISTS `app`;
+
+CREATE TABLE IF NOT EXISTS `app`.`users` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `email` VARCHAR(255) NOT NULL UNIQUE COMMENT 'User email address',
+    `username` VARCHAR(100) NOT NULL,
+    `status` VARCHAR(50) DEFAULT 'active',
+    `balance` DECIMAL(10, 2) DEFAULT 0.00,
+    `metadata` JSON,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    CHECK (`balance` >= 0)
+) COMMENT='User accounts';
+
+-- Indexes
+CREATE UNIQUE INDEX `idx_users_email_unique` ON `app`.`users` (`email`);
+CREATE INDEX `idx_users_status` ON `app`.`users` (`status`);
+
+CREATE TABLE IF NOT EXISTS `app`.`posts` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL COMMENT 'Author user ID',
+    `title` VARCHAR(255) NOT NULL,
+    `content` TEXT,
+    `published` TINYINT(1) DEFAULT 0,
+    `views` INT DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+) COMMENT='Blog posts';
+
+-- Indexes
+CREATE INDEX `idx_posts_user_id` ON `app`.`posts` (`user_id`);
+CREATE INDEX `idx_posts_published_created` ON `app`.`posts` (`published`, `created_at`);
+CREATE INDEX `idx_posts_content` ON `app`.`posts` (`content`(255));
+
+-- Foreign key constraints
+ALTER TABLE `app`.`posts` ADD CONSTRAINT `fk_posts_user_id` 
+    FOREIGN KEY(`user_id`) REFERENCES `app`.`users`(`id`) ON DELETE CASCADE;
+
+COMMIT;
+```
+
+## MySQL-Specific Features
+
+### AUTO_INCREMENT
+
+MySQL uses AUTO_INCREMENT for automatic sequence generation:
+
+```sql
+id BIGINT AUTO_INCREMENT PRIMARY KEY
+```
+
+ChartDB automatically:
+- Detects AUTO_INCREMENT from Smart Query
+- Adds AUTO_INCREMENT to primary key integer columns on export
+- Removes default values when AUTO_INCREMENT is present
+
+### Storage Engines
+
+MySQL supports multiple storage engines:
+
+- **InnoDB**: Default, supports transactions and foreign keys
+- **MyISAM**: Legacy, no transaction support
+- **MEMORY**: In-memory tables
+- **CSV**: Comma-separated values
+
+```sql
+CREATE TABLE users (...) ENGINE=InnoDB;
+```
+
+### Character Sets and Collations
+
+```sql
+CREATE TABLE users (...) 
+    DEFAULT CHARSET=utf8mb4 
+    COLLATE=utf8mb4_unicode_ci;
+```
+
+Column-level:
+```sql
+name VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+```
+
+### Comments
+
+MySQL supports inline comments:
+
+```sql
+CREATE TABLE users (
+    id BIGINT COMMENT 'Primary key',
+    email VARCHAR(255) COMMENT 'User email'
+) COMMENT='Application users';
+```
+
+### ENUM and SET Types
+
+```sql
+status ENUM('active', 'inactive', 'banned') DEFAULT 'active'
+roles SET('admin', 'editor', 'viewer')
+```
+
+<Note>
+ChartDB converts ENUM types to VARCHAR(50) on export to other databases.
+</Note>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use InnoDB engine">
+    Always use InnoDB for transaction support and foreign key constraints
+  </Step>
+  
+  <Step title="Set utf8mb4 character set">
+    Use utf8mb4 for full Unicode support including emojis
+  </Step>
+  
+  <Step title="Add comments">
+    Document tables and columns with COMMENT for better clarity
+  </Step>
+  
+  <Step title="Use UNSIGNED for non-negative integers">
+    Save storage and prevent negative values:
+    ```sql
+    age INT UNSIGNED
+    ```
+  </Step>
+  
+  <Step title="Index foreign keys">
+    MySQL doesn't auto-index foreign keys - add explicit indexes for performance
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="GROUP_CONCAT truncation">
+    For large databases in MySQL 5.7, increase the limit:
+    ```sql
+    SET SESSION group_concat_max_len = 10000000;
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    Ensure your database user has SELECT permissions on:
+    - `information_schema.tables`
+    - `information_schema.columns`
+    - `information_schema.key_column_usage`
+    - `information_schema.referential_constraints`
+    - `information_schema.statistics`
+    - `mysql.innodb_index_stats`
+  </Accordion>
+
+  <Accordion title="Inline REFERENCES error">
+    MySQL does not support inline REFERENCES. Use table-level FOREIGN KEY constraints instead.
+  </Accordion>
+
+  <Accordion title="CHECK constraint not working">
+    CHECK constraints are only enforced in MySQL 8.0.16+. For older versions, they are parsed but not enforced.
+  </Accordion>
+</AccordionGroup>

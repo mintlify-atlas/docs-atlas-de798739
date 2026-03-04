@@ -1,0 +1,513 @@
+---
+title: 'SQLite'
+description: 'Import and export SQLite database schemas including Cloudflare D1 support'
+icon: 'database'
+---
+
+ChartDB provides comprehensive support for SQLite, the lightweight embedded database, including special support for Cloudflare D1.
+
+## Database Editions
+
+ChartDB supports multiple SQLite editions:
+
+- **Standard SQLite**: File-based embedded database
+- **Cloudflare D1**: SQLite-based edge database with Wrangler CLI integration
+
+## Smart Query Import
+
+The SQLite Smart Query uses PRAGMA functions and json_group_array for metadata extraction.
+
+### Standard SQLite Query
+
+```sql
+/* Standard SQLite */
+WITH fk_info AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',  -- SQLite does not have schemas
+              'table', m.name,
+              'column', fk."from",
+              'foreign_key_name',
+                  'fk_' || m.name || '_' || fk."from" || '_' || fk."table" || '_' || fk."to",
+              'reference_schema', '',
+              'reference_table', fk."table",
+              'reference_column', fk."to",
+              'fk_def',
+                  'FOREIGN KEY (' || fk."from" || ') REFERENCES ' || fk."table" || '(' || fk."to" || ')' ||
+                  ' ON UPDATE ' || fk.on_update || ' ON DELETE ' || fk.on_delete
+          )
+      ) AS fk_metadata
+  FROM
+      sqlite_master m
+  JOIN
+      pragma_foreign_key_list(m.name) fk
+  ON
+      m.type = 'table'
+), pk_info AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',
+              'table', pk.table_name,
+              'field_count', pk.field_count,
+              'column', pk.pk_column,
+              'pk_def', 'PRIMARY KEY (' || pk.pk_column || ')'
+          )
+      ) AS pk_metadata
+  FROM
+  (
+      SELECT
+          m.name AS table_name,
+          COUNT(p.name) AS field_count,
+          GROUP_CONCAT(p.name) AS pk_column
+      FROM
+          sqlite_master m
+      JOIN
+          pragma_table_info(m.name) p
+      ON
+          m.type = 'table' AND p.pk > 0
+      GROUP BY
+          m.name
+  ) pk
+), indexes_metadata AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',
+              'table', m.name,
+              'name', idx.name,
+              'column', ic.name,
+              'index_type', 'B-TREE',
+              'cardinality', null,
+              'size', null,
+              'unique', (CASE WHEN idx."unique" = 1 THEN true ELSE false END),
+              'direction', '',
+              'column_position', ic.seqno + 1
+          )
+      ) AS indexes_metadata
+  FROM
+      sqlite_master m
+  JOIN
+      pragma_index_list(m.name) idx
+  ON
+      m.type = 'table'
+  JOIN
+      pragma_index_info(idx.name) ic
+), cols AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',
+              'table', m.name,
+              'name', p.name,
+              'type',
+                  CASE
+                      WHEN INSTR(LOWER(p.type), '(') > 0 THEN
+                          SUBSTR(LOWER(p.type), 1, INSTR(LOWER(p.type), '(') - 1)
+                      ELSE LOWER(p.type)
+                  END,
+              'ordinal_position', p.cid,
+              'nullable', (CASE WHEN p."notnull" = 0 THEN true ELSE false END),
+              'collation', '',
+              'character_maximum_length',
+                  CASE
+                      WHEN LOWER(p.type) LIKE 'char%' OR LOWER(p.type) LIKE 'varchar%' THEN
+                          CASE
+                              WHEN INSTR(p.type, '(') > 0 THEN
+                                  REPLACE(SUBSTR(p.type, INSTR(p.type, '(') + 1, LENGTH(p.type) - INSTR(p.type, '(') - 1), ')', '')
+                              ELSE 'null'
+                          END
+                      ELSE 'null'
+                  END,
+              'precision',
+              CASE
+                  WHEN LOWER(p.type) LIKE 'decimal%' OR LOWER(p.type) LIKE 'numeric%' THEN
+                      CASE
+                          WHEN instr(p.type, '(') > 0 THEN
+                              json_object(
+                                  'precision', CAST(substr(p.type, instr(p.type, '(') + 1, instr(p.type, ',') - instr(p.type, '(') - 1) AS INTEGER),
+                                  'scale', CAST(substr(p.type, instr(p.type, ',') + 1, instr(p.type, ')') - instr(p.type, ',') - 1) AS INTEGER)
+                              )
+                          ELSE null
+                      END
+                  ELSE null
+              END,
+              'default', COALESCE(REPLACE(p.dflt_value, '"', '\\"'), ''),
+              'is_identity', 
+              CASE 
+                  WHEN p.pk = 1 AND LOWER(p.type) LIKE '%int%' THEN json('true')
+                  WHEN LOWER((SELECT sql FROM sqlite_master WHERE name = m.name)) LIKE '%' || p.name || '%autoincrement%' THEN json('true')
+                  ELSE json('false')
+              END
+          )
+      ) AS cols_metadata
+  FROM
+      sqlite_master m
+  JOIN
+      pragma_table_info(m.name) p
+  ON
+      m.type in ('table', 'view')
+), tbls AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',
+              'table', m.name,
+              'rows', -1,
+              'type', 'table',
+              'engine', '',
+              'collation', ''
+          )
+      ) AS tbls_metadata
+  FROM
+      sqlite_master m
+  WHERE
+      m.type in ('table', 'view')
+), views AS (
+  SELECT
+      json_group_array(
+          json_object(
+              'schema', '',
+              'view_name', m.name
+          )
+      ) AS views_metadata
+  FROM
+      sqlite_master m
+  WHERE
+      m.type = 'view'
+)
+SELECT
+replace(replace(replace(
+      json_object(
+          'fk_info', (SELECT fk_metadata FROM fk_info),
+          'pk_info', (SELECT pk_metadata FROM pk_info),
+          'columns', (SELECT cols_metadata FROM cols),
+          'indexes', (SELECT indexes_metadata FROM indexes_metadata),
+          'tables', (SELECT tbls_metadata FROM tbls),
+          'views', (SELECT views_metadata FROM views),
+          'database_name', 'sqlite',
+          'version', sqlite_version()
+      ),
+      '\\"', '"'),'"[', '['), ']"', ']'
+) AS metadata_json_to_import;
+```
+
+### Cloudflare D1 Query
+
+For Cloudflare D1, the query filters out internal `_cf_*` tables:
+
+```sql
+/* Cloudflare D1 SQLite */
+WHERE m.name NOT LIKE '\\_cf\\_%' ESCAPE '\\'
+```
+
+<Note>
+Cloudflare D1 databases can be queried using the Wrangler CLI:
+```bash
+wrangler d1 execute YOUR_DB_NAME --command "[QUERY]"
+```
+</Note>
+
+### What the Smart Query Retrieves
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys (fk_info)">
+    - Table and column names (schemas are always empty)
+    - Generated foreign key names (SQLite doesn't name them)
+    - Referenced table and column
+    - ON UPDATE and ON DELETE actions
+    - FK definitions from `pragma_foreign_key_list()`
+  </Accordion>
+
+  <Accordion title="Primary Keys (pk_info)">
+    - Table names
+    - Field count (number of PK columns)
+    - Column names (comma-separated for composite keys)
+    - PK definitions
+  </Accordion>
+
+  <Accordion title="Columns (cols)">
+    - Data types (extracted from type definitions)
+    - Character maximum length (parsed from VARCHAR(n))
+    - Numeric precision and scale (parsed from DECIMAL(p,s))
+    - Ordinal position (column ID)
+    - Nullable constraints (from "notnull" flag)
+    - Default values (from dflt_value)
+    - AUTOINCREMENT detection (checks if column is PK INTEGER or has AUTOINCREMENT keyword)
+  </Accordion>
+
+  <Accordion title="Indexes (indexes_metadata)">
+    - Index names from `pragma_index_list()`
+    - Indexed columns from `pragma_index_info()`
+    - Index type (always B-TREE for SQLite)
+    - Unique constraint flags
+    - Column positions
+    - Cardinality and size (not available in SQLite)
+  </Accordion>
+
+  <Accordion title="Tables (tbls)">
+    - Table names from `sqlite_master`
+    - Type (table or view)
+    - Row counts (always -1 as SQLite doesn't track this)
+    - Engine and collation (empty for SQLite)
+  </Accordion>
+
+  <Accordion title="Views">
+    - View names from `sqlite_master` where type='view'
+  </Accordion>
+</AccordionGroup>
+
+## SQL Import
+
+ChartDB can parse SQLite DDL scripts with SQLite-specific syntax.
+
+### Supported Features
+
+- **Table Creation**: CREATE TABLE with IF NOT EXISTS
+- **Data Types**: SQLite's type affinity system:
+  - INTEGER
+  - TEXT
+  - REAL
+  - BLOB
+  - NUMERIC
+  - Plus type aliases (VARCHAR, INT, etc.)
+- **Constraints**:
+  - PRIMARY KEY (inline and table-level)
+  - FOREIGN KEY (table-level only, requires PRAGMA foreign_keys=ON)
+  - UNIQUE constraints
+  - CHECK constraints
+  - NOT NULL
+- **AUTOINCREMENT**: Only works with INTEGER PRIMARY KEY
+- **Indexes**: CREATE INDEX and CREATE UNIQUE INDEX
+- **Views**: CREATE VIEW
+- **Triggers**: CREATE TRIGGER (parsed but not imported)
+
+### Import Example
+
+```sql
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL,
+    balance REAL DEFAULT 0.0,
+    metadata TEXT,  -- JSON stored as TEXT
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    CHECK (balance >= 0)
+);
+
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+
+CREATE TABLE IF NOT EXISTS posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT,
+    published INTEGER DEFAULT 0,  -- Boolean as INTEGER
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+```
+
+## SQL Export
+
+Export your ChartDB diagrams to SQLite-compatible SQL.
+
+### Export Features
+
+- **PRAGMA foreign_keys**: Automatically enabled if foreign keys exist
+- **Transaction Wrapper**: BEGIN TRANSACTION / COMMIT for atomic imports
+- **Data Type Mapping**: Converts types to SQLite equivalents:
+  - boolean → INTEGER (0/1)
+  - varchar/char → TEXT
+  - uuid → TEXT
+  - jsonb/json → TEXT
+  - Arrays → TEXT (JSON representation)
+  - datetime2/timestamp → TEXT
+- **INTEGER PRIMARY KEY**: Special handling for AUTOINCREMENT
+- **Inline Foreign Keys**: Foreign keys in CREATE TABLE (not ALTER TABLE)
+- **Double-Quote Identifiers**: Proper "identifier" quoting
+- **Check Constraints**: Full support
+- **Indexes**: Separate CREATE INDEX statements with IF NOT EXISTS
+
+### Export Example
+
+```sql
+-- SQLite database export
+PRAGMA foreign_keys = ON;
+
+BEGIN TRANSACTION;
+
+CREATE TABLE IF NOT EXISTS "users" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+    "email" TEXT NOT NULL UNIQUE,
+    "username" TEXT NOT NULL,
+    "balance" REAL DEFAULT 0.0,
+    "metadata" TEXT,
+    "created_at" TEXT DEFAULT CURRENT_TIMESTAMP,
+    CHECK (balance >= 0)
+);
+
+-- Indexes
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_idx"
+ON "users" ("email");
+
+CREATE TABLE IF NOT EXISTS "posts" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+    "user_id" INTEGER NOT NULL,
+    "title" TEXT NOT NULL,
+    "content" TEXT,
+    "published" INTEGER DEFAULT 0,
+    "created_at" TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS "posts_user_id_idx"
+ON "posts" ("user_id");
+
+COMMIT;
+```
+
+## SQLite-Specific Features
+
+### Type Affinity
+
+SQLite uses type affinity instead of strict types:
+
+- **INTEGER**: Signed integers
+- **TEXT**: Text strings
+- **REAL**: Floating point
+- **BLOB**: Binary data
+- **NUMERIC**: Can store any type
+
+Type names like VARCHAR(255) are aliases that map to these affinities.
+
+### AUTOINCREMENT
+
+AUTOINCREMENT only works with INTEGER PRIMARY KEY:
+
+```sql
+id INTEGER PRIMARY KEY AUTOINCREMENT
+```
+
+<Warning>
+Using AUTOINCREMENT with other types (BIGINT, SERIAL, etc.) will fail in SQLite.
+</Warning>
+
+### Foreign Keys
+
+Foreign keys must be:
+1. Enabled with `PRAGMA foreign_keys = ON;`
+2. Defined as table-level constraints (not inline)
+3. In the same table creation statement (no ALTER TABLE ADD FOREIGN KEY)
+
+```sql
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE posts (
+    user_id INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+### No ALTER TABLE for Constraints
+
+SQLite doesn't support adding foreign keys with ALTER TABLE. All constraints must be in CREATE TABLE.
+
+### Schemas
+
+SQLite doesn't support schemas (namespaces). If importing from a multi-schema database, ChartDB will:
+- Add schema names as comments
+- Use only table names in the SQL
+
+### JSON Support
+
+SQLite has JSON functions but no JSON data type. Store JSON as TEXT:
+
+```sql
+metadata TEXT,
+CHECK (json_valid(metadata))
+```
+
+## Cloudflare D1 Integration
+
+Cloudflare D1 is SQLite at the edge. Special considerations:
+
+### Wrangler CLI Import
+
+ChartDB provides a Wrangler command wrapper:
+
+```bash
+wrangler d1 execute YOUR_DB_NAME --command "[SMART_QUERY]"
+```
+
+### System Table Filtering
+
+D1 uses `_cf_*` tables for internal state. The D1 Smart Query filters these out:
+
+```sql
+WHERE m.name NOT LIKE '\\_cf\\_%' ESCAPE '\\'
+```
+
+### Limitations
+
+D1 has some limitations compared to standard SQLite:
+- No ATTACH DATABASE
+- Limited PRAGMA support
+- Size limits (10MB in free tier)
+
+## Best Practices
+
+<Steps>
+  <Step title="Always enable foreign keys">
+    Add `PRAGMA foreign_keys = ON;` at the start of your schema
+  </Step>
+  
+  <Step title="Use INTEGER PRIMARY KEY for auto-increment">
+    This is the only way to get auto-incrementing IDs in SQLite
+  </Step>
+  
+  <Step title="Store JSON as TEXT">
+    Use TEXT columns with json_valid() checks for JSON data
+  </Step>
+  
+  <Step title="Keep schemas simple">
+    SQLite doesn't have schemas - organize with table prefixes if needed
+  </Step>
+  
+  <Step title="Use transactions">
+    Wrap DDL statements in BEGIN/COMMIT for better performance
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Foreign keys not enforced">
+    Run `PRAGMA foreign_keys = ON;` before creating tables. This setting is per-connection.
+  </Accordion>
+
+  <Accordion title="AUTOINCREMENT not working">
+    AUTOINCREMENT only works with `INTEGER PRIMARY KEY`, not BIGINT or other integer types.
+  </Accordion>
+
+  <Accordion title="ALTER TABLE ADD FOREIGN KEY fails">
+    SQLite doesn't support adding foreign keys after table creation. Recreate the table instead.
+  </Accordion>
+
+  <Accordion title="Type mismatch errors">
+    SQLite is flexible with types. Ensure you're using compatible type affinities.
+  </Accordion>
+
+  <Accordion title="D1 query fails">
+    Ensure you have:
+    - Wrangler CLI installed and logged in
+    - Correct database name and ID in wrangler.toml
+    - Proper escaping of the query for CLI
+  </Accordion>
+</AccordionGroup>

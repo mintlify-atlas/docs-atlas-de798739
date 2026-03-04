@@ -1,0 +1,300 @@
+---
+title: 'Relationship'
+description: 'Foreign key relationships between database tables'
+---
+
+## Overview
+
+The `DBRelationship` interface represents a foreign key relationship between two tables, defining cardinality and referential integrity.
+
+## Interface Definition
+
+```typescript
+interface DBRelationship {
+    id: string;
+    name: string;
+    sourceSchema?: string | null;
+    sourceTableId: string;
+    targetSchema?: string | null;
+    targetTableId: string;
+    sourceFieldId: string;
+    targetFieldId: string;
+    sourceCardinality: Cardinality;
+    targetCardinality: Cardinality;
+    createdAt: number;
+}
+
+type Cardinality = 'one' | 'many';
+```
+
+## Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the relationship
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Foreign key constraint name (e.g., `'fk_orders_user_id'`)
+</ParamField>
+
+<ParamField path="sourceSchema" type="string | null">
+  Schema of the source (referenced) table
+</ParamField>
+
+<ParamField path="sourceTableId" type="string" required>
+  ID of the source (referenced) table containing the primary key
+</ParamField>
+
+<ParamField path="targetSchema" type="string | null">
+  Schema of the target (referencing) table
+</ParamField>
+
+<ParamField path="targetTableId" type="string" required>
+  ID of the target (referencing) table containing the foreign key
+</ParamField>
+
+<ParamField path="sourceFieldId" type="string" required>
+  ID of the field in the source table (typically a primary key)
+</ParamField>
+
+<ParamField path="targetFieldId" type="string" required>
+  ID of the field in the target table (the foreign key column)
+</ParamField>
+
+<ParamField path="sourceCardinality" type="Cardinality" required>
+  Cardinality on the source side: `'one'` or `'many'`
+</ParamField>
+
+<ParamField path="targetCardinality" type="Cardinality" required>
+  Cardinality on the target side: `'one'` or `'many'`
+</ParamField>
+
+<ParamField path="createdAt" type="number" required>
+  Timestamp when the relationship was created (milliseconds since epoch)
+</ParamField>
+
+## Relationship Types
+
+```typescript
+type RelationshipType = 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
+```
+
+Relationship type is determined by the cardinality combination:
+
+<ParamField path="one_to_one" type="RelationshipType">
+  Both source and target have `'one'` cardinality.
+  
+  Example: User ↔ Profile (one user has one profile)
+</ParamField>
+
+<ParamField path="one_to_many" type="RelationshipType">
+  Source has `'one'` cardinality, target has `'many'` cardinality.
+  
+  Example: User → Posts (one user has many posts)
+</ParamField>
+
+<ParamField path="many_to_one" type="RelationshipType">
+  Source has `'many'` cardinality, target has `'one'` cardinality.
+  
+  Example: Posts ← User (many posts belong to one user)
+</ParamField>
+
+<ParamField path="many_to_many" type="RelationshipType">
+  Both source and target have `'many'` cardinality. Requires a junction table.
+  
+  Example: Students ↔ Courses (students have many courses, courses have many students)
+</ParamField>
+
+## Zod Schema
+
+```typescript
+const dbRelationshipSchema: z.ZodType<DBRelationship> = z.object({
+    id: z.string(),
+    name: z.string(),
+    sourceSchema: z.string().or(z.null()).optional(),
+    sourceTableId: z.string(),
+    targetSchema: z.string().or(z.null()).optional(),
+    targetTableId: z.string(),
+    sourceFieldId: z.string(),
+    targetFieldId: z.string(),
+    sourceCardinality: z.union([z.literal('one'), z.literal('many')]),
+    targetCardinality: z.union([z.literal('one'), z.literal('many')]),
+    createdAt: z.number(),
+});
+```
+
+## Helper Functions
+
+### determineRelationshipType
+
+Determines the relationship type from cardinalities:
+
+```typescript
+const determineRelationshipType = ({
+    sourceCardinality,
+    targetCardinality,
+}: {
+    sourceCardinality: Cardinality;
+    targetCardinality: Cardinality;
+}): RelationshipType => {
+    if (sourceCardinality === 'one' && targetCardinality === 'one')
+        return 'one_to_one';
+    if (sourceCardinality === 'one' && targetCardinality === 'many')
+        return 'one_to_many';
+    if (sourceCardinality === 'many' && targetCardinality === 'one')
+        return 'many_to_one';
+    return 'many_to_many';
+};
+```
+
+### determineCardinalities
+
+Converts relationship type to cardinalities:
+
+```typescript
+const determineCardinalities = (
+    relationshipType: RelationshipType
+): {
+    sourceCardinality: Cardinality;
+    targetCardinality: Cardinality;
+} => {
+    switch (relationshipType) {
+        case 'one_to_one':
+            return { sourceCardinality: 'one', targetCardinality: 'one' };
+        case 'one_to_many':
+            return { sourceCardinality: 'one', targetCardinality: 'many' };
+        case 'many_to_one':
+            return { sourceCardinality: 'many', targetCardinality: 'one' };
+        case 'many_to_many':
+            return { sourceCardinality: 'many', targetCardinality: 'many' };
+    }
+};
+```
+
+## Examples
+
+### One-to-Many Relationship
+
+```typescript
+// User (1) → Orders (Many)
+// One user can have many orders
+const userOrdersRelationship: DBRelationship = {
+    id: 'rel_user_orders',
+    name: 'fk_orders_user_id',
+    sourceSchema: 'public',
+    sourceTableId: 'table_users',     // Parent table (PK side)
+    targetSchema: 'public',
+    targetTableId: 'table_orders',    // Child table (FK side)
+    sourceFieldId: 'field_user_id',   // users.id (PK)
+    targetFieldId: 'field_user_id',   // orders.user_id (FK)
+    sourceCardinality: 'one',
+    targetCardinality: 'many',
+    createdAt: Date.now()
+};
+
+// SQL: ALTER TABLE orders ADD CONSTRAINT fk_orders_user_id 
+//      FOREIGN KEY (user_id) REFERENCES users(id);
+```
+
+### One-to-One Relationship
+
+```typescript
+// User (1) ↔ Profile (1)
+// One user has one profile
+const userProfileRelationship: DBRelationship = {
+    id: 'rel_user_profile',
+    name: 'fk_profiles_user_id',
+    sourceTableId: 'table_users',
+    targetTableId: 'table_profiles',
+    sourceFieldId: 'field_id',        // users.id
+    targetFieldId: 'field_user_id',   // profiles.user_id (unique)
+    sourceCardinality: 'one',
+    targetCardinality: 'one',
+    createdAt: Date.now()
+};
+
+// SQL: ALTER TABLE profiles ADD CONSTRAINT fk_profiles_user_id 
+//      FOREIGN KEY (user_id) REFERENCES users(id);
+```
+
+### Many-to-One Relationship
+
+```typescript
+// Products (Many) ← Category (1)
+// Many products belong to one category
+const productCategoryRelationship: DBRelationship = {
+    id: 'rel_product_category',
+    name: 'fk_products_category_id',
+    sourceTableId: 'table_categories',  // Parent (1)
+    targetTableId: 'table_products',    // Child (Many)
+    sourceFieldId: 'field_id',          // categories.id
+    targetFieldId: 'field_category_id', // products.category_id
+    sourceCardinality: 'one',
+    targetCardinality: 'many',
+    createdAt: Date.now()
+};
+```
+
+### Many-to-Many with Junction Table
+
+```typescript
+// Students ↔ Courses (requires junction table: enrollments)
+
+// Student (1) → Enrollments (Many)
+const studentEnrollments: DBRelationship = {
+    id: 'rel_student_enrollments',
+    name: 'fk_enrollments_student_id',
+    sourceTableId: 'table_students',
+    targetTableId: 'table_enrollments',
+    sourceFieldId: 'field_id',          // students.id
+    targetFieldId: 'field_student_id',  // enrollments.student_id
+    sourceCardinality: 'one',
+    targetCardinality: 'many',
+    createdAt: Date.now()
+};
+
+// Course (1) → Enrollments (Many)
+const courseEnrollments: DBRelationship = {
+    id: 'rel_course_enrollments',
+    name: 'fk_enrollments_course_id',
+    sourceTableId: 'table_courses',
+    targetTableId: 'table_enrollments',
+    sourceFieldId: 'field_id',         // courses.id
+    targetFieldId: 'field_course_id',  // enrollments.course_id
+    sourceCardinality: 'one',
+    targetCardinality: 'many',
+    createdAt: Date.now()
+};
+```
+
+## Relationship Direction
+
+In ChartDB's data model:
+
+- **Source Table**: The table containing the primary key (referenced table)
+- **Target Table**: The table containing the foreign key (referencing table)
+
+The foreign key constraint is created on the **target table**:
+
+```sql
+ALTER TABLE target_table 
+ADD CONSTRAINT relationship_name 
+FOREIGN KEY (target_field) 
+REFERENCES source_table(source_field);
+```
+
+## Common Cardinality Patterns
+
+| Pattern | Source | Target | Example |
+|---------|--------|--------|----------|
+| One-to-Many | one | many | User → Orders |
+| Many-to-One | one | many | Products ← Category |
+| One-to-One | one | one | User ↔ Profile |
+| Many-to-Many | many | many | Students ↔ Courses (via junction) |
+
+## Related Types
+
+- [Table](/api/table)
+- [Field](/api/field)
+- [Diagram](/api/diagram)
+- [SQL Export](/api/sql-export)

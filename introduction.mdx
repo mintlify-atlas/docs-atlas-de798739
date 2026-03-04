@@ -1,0 +1,269 @@
+---
+title: Welcome to ChartDB
+description: Visualize and design your database with a single query
+mode: custom
+---
+
+<div className="relative overflow-hidden bg-gradient-to-br from-[#5ebb7b] via-[#4a9962] to-[#273233] dark:from-[#273233] dark:via-[#3a5a4d] dark:to-[#5ebb7b]">
+  <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+  <div className="relative max-w-7xl mx-auto px-6 sm:px-8 py-20 lg:py-24">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Database diagrams editor
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 max-w-2xl mb-8">
+          Instantly visualize your database schema with a single query. No installations, no database passwords required. Experience seamless database design in your browser.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-[#273233] bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+          >
+            Get Started
+          </a>
+          <a
+            href="https://app.chartdb.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-white/10 border border-white/30 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+          >
+            Try Demo
+          </a>
+          <a
+            href="/features/import-methods"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-white/10 border border-white/30 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+          >
+            Explore Features
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5">
+        <div className="relative">
+          <img
+            src="https://raw.githubusercontent.com/chartdb/chartdb/main/public/chartdb.png"
+            alt="ChartDB interface showing database diagram editor"
+            className="w-full h-auto rounded-lg shadow-2xl"
+            noZoom
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Get started in seconds
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Follow these steps to visualize your database schema with ChartDB
+  </p>
+
+  <Steps>
+    <Step title="Choose your database">
+      Select your database type from PostgreSQL, MySQL, SQL Server, MariaDB, SQLite, ClickHouse, CockroachDB, or Oracle. ChartDB supports all major database engines.
+    </Step>
+    
+    <Step title="Run the Smart Query">
+      Copy the provided Smart Query and execute it in your database. This single query extracts your entire schema as JSON metadata—no database passwords or credentials needed.
+      
+      ```sql PostgreSQL Example
+      SELECT json_agg(json_build_object(
+        'table', tablename,
+        'schema', schemaname
+      )) FROM pg_tables WHERE schemaname = 'public';
+      ```
+    </Step>
+    
+    <Step title="Paste the results">
+      Copy the JSON output from your query and paste it into ChartDB. Your database schema will instantly appear as an interactive diagram.
+    </Step>
+    
+    <Step title="Visualize and edit">
+      Use the interactive canvas to explore relationships, edit tables, add areas for organization, and export to various formats including SQL DDL scripts and DBML.
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Key features
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to visualize, design, and migrate database schemas
+  </p>
+
+  <CardGroup cols={2}>
+    <Card title="Instant Schema Import" icon="bolt" href="/features/smart-query">
+      Run a single query to retrieve your database schema as JSON. Fast, secure, and no database passwords required.
+    </Card>
+    
+    <Card title="Visual Editor" icon="pen-to-square" href="/features/diagram-editor">
+      Interactive canvas with drag-and-drop tables, relationships, areas, and sticky notes for documentation.
+    </Card>
+    
+    <Card title="9 Database Types" icon="database" href="/databases/overview">
+      Support for PostgreSQL, MySQL, SQL Server, MariaDB, SQLite, ClickHouse, CockroachDB, Oracle, and more.
+    </Card>
+    
+    <Card title="AI-Powered Migration" icon="wand-magic-sparkles" href="/features/ai-migration">
+      Export DDL scripts in any dialect. Migrate from MySQL to PostgreSQL, SQLite to MariaDB, and more with AI assistance.
+    </Card>
+    
+    <Card title="Multiple Import Methods" icon="file-import" href="/features/import-methods">
+      Import via Smart Query (JSON), DDL scripts, or DBML files. Choose the method that fits your workflow.
+    </Card>
+    
+    <Card title="Template Library" icon="layer-group" href="/guides/templates">
+      Start from pre-built templates for common use cases like e-commerce, SaaS, and content management systems.
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Explore by topic
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Deep dive into specific areas of ChartDB
+  </p>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a
+      href="/features/diagram-editor"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#5ebb7b] dark:hover:border-[#5ebb7b] overflow-hidden no-underline transition-all bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#5ebb7b] transition-colors">
+          Interactive Canvas
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Learn how to use the visual editor to create and modify database diagrams with tables, relationships, areas, and notes.
+        </p>
+        <div className="flex items-center text-sm font-medium text-[#5ebb7b]">
+          Explore the editor
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/guides/managing-relationships"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#5ebb7b] dark:hover:border-[#5ebb7b] overflow-hidden no-underline transition-all bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#5ebb7b] transition-colors">
+          Managing Relationships
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Create and edit foreign key relationships with custom cardinality, update rules, and delete cascades.
+        </p>
+        <div className="flex items-center text-sm font-medium text-[#5ebb7b]">
+          Learn about relationships
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/features/export-options"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#5ebb7b] dark:hover:border-[#5ebb7b] overflow-hidden no-underline transition-all bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#5ebb7b] transition-colors">
+          Export & Share
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Export your diagrams as SQL DDL scripts, DBML files, PNG images, or share via URL for collaboration.
+        </p>
+        <div className="flex items-center text-sm font-medium text-[#5ebb7b]">
+          View export options
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/self-hosting/docker"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#5ebb7b] dark:hover:border-[#5ebb7b] overflow-hidden no-underline transition-all bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#5ebb7b] transition-colors">
+          Self-Hosting
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Deploy ChartDB on your own infrastructure with Docker. Configure AI features with your OpenAI API key.
+        </p>
+        <div className="flex items-center text-sm font-medium text-[#5ebb7b]">
+          Deploy with Docker
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Community & support
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get help and connect with other ChartDB users
+  </p>
+
+  <CardGroup cols={2}>
+    <Card title="Discord Community" icon="discord" href="https://discord.gg/QeFwyWSKwC">
+      Join our Discord server to discuss features, report issues, and connect with the community.
+    </Card>
+    
+    <Card title="GitHub Issues" icon="github" href="https://github.com/chartdb/chartdb/issues">
+      Report bugs, request features, and track development progress on GitHub.
+    </Card>
+    
+    <Card title="Contributing" icon="code-pull-request" href="https://github.com/chartdb/chartdb/blob/main/CONTRIBUTING.md">
+      Learn how to contribute to ChartDB. All contributions are welcome.
+    </Card>
+    
+    <Card title="Twitter Updates" icon="x-twitter" href="https://x.com/jonathanfishner">
+      Follow for product updates, tips, and announcements.
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#5ebb7b] to-[#4a9962] dark:from-[#3a5a4d] dark:to-[#5ebb7b] p-8 sm:p-12">
+    <div className="relative z-10">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+        Ready to visualize your database?
+      </h2>
+      <p className="text-base sm:text-lg text-white/90 mb-6 max-w-2xl">
+        Get started with ChartDB today. No account required, no installations needed.
+      </p>
+      <div className="flex flex-wrap gap-4">
+        <a
+          href="/quickstart"
+          className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-[#273233] bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+        >
+          Start Now
+        </a>
+        <a
+          href="https://app.chartdb.io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-white/10 border border-white/30 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+        >
+          Try Live Demo
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

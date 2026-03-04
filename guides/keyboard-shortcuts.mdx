@@ -1,0 +1,475 @@
+---
+title: Keyboard Shortcuts
+description: Complete reference of keyboard shortcuts in ChartDB for faster diagram editing
+icon: 'keyboard'
+---
+
+## Overview
+
+ChartDB provides keyboard shortcuts to speed up your workflow. All shortcuts are context-aware and work seamlessly across macOS, Windows, and Linux.
+
+<Note>
+  Shortcuts are displayed using macOS notation by default. Windows/Linux users should substitute `Cmd` (⌘) with `Ctrl`.
+</Note>
+
+## Essential Shortcuts
+
+These are the most frequently used shortcuts you should learn first:
+
+<CardGroup cols={2}>
+  <Card title="Undo" icon="rotate-left">
+    **macOS:** `⌘Z`
+    
+    **Windows/Linux:** `Ctrl+Z`
+    
+    Undo the last action
+  </Card>
+  
+  <Card title="Redo" icon="rotate-right">
+    **macOS:** `⇧⌘Z`
+    
+    **Windows/Linux:** `Ctrl+Shift+Z`
+    
+    Redo the previously undone action
+  </Card>
+  
+  <Card title="Save Diagram" icon="floppy-disk">
+    **macOS:** `⌘S`
+    
+    **Windows/Linux:** `Ctrl+S`
+    
+    Save current diagram
+  </Card>
+  
+  <Card title="Open Diagram" icon="folder-open">
+    **macOS:** `⌘O`
+    
+    **Windows/Linux:** `Ctrl+O`
+    
+    Open diagram browser
+  </Card>
+</CardGroup>
+
+## All Keyboard Shortcuts
+
+### File Operations
+
+<ParamField path="Open Diagram" type="shortcut">
+  **macOS:** `⌘O` (`meta+o`)
+  
+  **Windows/Linux:** `Ctrl+O` (`ctrl+o`)
+  
+  Opens the diagram selection dialog to load a saved diagram.
+</ParamField>
+
+<ParamField path="Save Diagram" type="shortcut">
+  **macOS:** `⌘S` (`meta+s`)
+  
+  **Windows/Linux:** `Ctrl+S` (`ctrl+s`)
+  
+  Saves the current diagram. ChartDB also auto-saves as you work.
+</ParamField>
+
+### Edit Operations
+
+<ParamField path="Undo" type="shortcut">
+  **macOS:** `⌘Z` (`meta+z`)
+  
+  **Windows/Linux:** `Ctrl+Z` (`ctrl+z`)
+  
+  Undoes the last change made to the diagram.
+  
+  **Undoable actions:**
+  - Creating/deleting tables, relationships, areas, notes
+  - Modifying table properties and fields
+  - Moving elements on the canvas
+  - Changing colors and sizes
+</ParamField>
+
+<ParamField path="Redo" type="shortcut">
+  **macOS:** `⇧⌘Z` (`meta+shift+z`)
+  
+  **Windows/Linux:** `Ctrl+Shift+Z` (`ctrl+shift+z`)
+  
+  Redoes the action that was undone.
+</ParamField>
+
+### View Controls
+
+<ParamField path="Toggle Side Panel" type="shortcut">
+  **macOS:** `⌘B` (`meta+b`)
+  
+  **Windows/Linux:** `Ctrl+B` (`ctrl+b`)
+  
+  Toggles the sidebar panel visibility.
+  
+  The sidebar contains:
+  - Tables list
+  - Relationships list  
+  - Schema browser
+  - Diagram settings
+</ParamField>
+
+<ParamField path="Show All" type="shortcut">
+  **macOS:** `⌘0` (`meta+0`)
+  
+  **Windows/Linux:** `Ctrl+0` (`ctrl+0`)
+  
+  Fits all diagram elements in the viewport.
+  
+  **Use when:**
+  - You've lost your position on the canvas
+  - You want to see the entire diagram
+  - Taking screenshots of the full diagram
+</ParamField>
+
+<ParamField path="Toggle Theme" type="shortcut">
+  **macOS:** `⌘M` (`meta+m`)
+  
+  **Windows/Linux:** `Ctrl+M` (`ctrl+m`)
+  
+  Switches between light and dark theme.
+</ParamField>
+
+<ParamField path="Toggle Filter" type="shortcut">
+  **macOS:** `⌘F` (`meta+f`)
+  
+  **Windows/Linux:** `Ctrl+F` (`ctrl+f`)
+  
+  Opens/closes the diagram filter panel.
+  
+  **Filter options:**
+  - Filter by schema
+  - Filter by table name
+  - Show/hide views
+  - Show/hide specific tables
+</ParamField>
+
+## Canvas Navigation
+
+These actions use mouse/trackpad controls:
+
+<CardGroup cols={2}>
+  <Card title="Pan Canvas" icon="hand">
+    **Click and drag** on empty canvas space
+    
+    Move around the diagram
+  </Card>
+  
+  <Card title="Zoom In/Out" icon="magnifying-glass">
+    **Mouse wheel** or **pinch gesture**
+    
+    Zoom the canvas in or out
+  </Card>
+  
+  <Card title="Select Element" icon="arrow-pointer">
+    **Click** on table, area, or note
+    
+    Select for editing or moving
+  </Card>
+  
+  <Card title="Multi-Select" icon="list-check">
+    **Shift+Click** or **drag selection box**
+    
+    Select multiple elements
+  </Card>
+</CardGroup>
+
+## Context Menu Shortcuts
+
+Right-click shortcuts vary by context:
+
+### Canvas Context Menu
+
+**Right-click on empty canvas:**
+
+- **New Table** - Create a table at cursor position
+- **New View** - Create a database view
+- **New Relationship** - Open relationship creation dialog
+- **New Area** - Create an area for grouping
+- **New Note** - Add a text annotation
+- **Import SQL/DBML** - Import schema from SQL or DBML
+
+### Table Context Menu  
+
+**Right-click on a table:**
+
+- **Edit Table** - Enter table edit mode
+- **Duplicate Table** - Create a copy with `_copy` suffix
+- **Add Relationship** - Start creating a relationship from this table
+- **Delete Table** - Remove the table and its relationships
+
+### Area Context Menu
+
+**Right-click on an area:**
+
+- **Edit Area Name** - Rename the area
+- **Delete Area** - Remove the area (tables remain)
+
+### Relationship Context Menu
+
+**Click on a relationship line:**
+
+- **1:1** / **1:N** buttons - Change cardinality
+- **Switch** (⇄) - Reverse relationship direction  
+- **Details** (◉) - Open in sidebar
+- **Delete** (🗑) - Remove relationship
+
+## Table Editing Shortcuts
+
+When editing a table (double-click or right-click → Edit):
+
+<AccordionGroup>
+  <Accordion title="Field Navigation">
+    - **Tab** - Move to next field property
+    - **Shift+Tab** - Move to previous field property
+    - **Enter** - Save current field and create new field
+    - **Escape** - Exit edit mode without saving
+  </Accordion>
+  
+  <Accordion title="Field Toggles">
+    Quick toggle buttons for field properties:
+    - **PK** - Primary Key
+    - **U** - Unique
+    - **NN** - Not Null
+    - **AI** - Auto Increment (for integer types)
+  </Accordion>
+  
+  <Accordion title="Field Deletion">
+    - **Delete icon** on field row - Remove field
+    - Confirm in dialog that appears
+  </Accordion>
+</AccordionGroup>
+
+## Creating Elements
+
+### Quick Creation Workflows
+
+<Steps>
+  <Step title="Create Table">
+    1. Right-click canvas at desired position
+    2. Select **New Table**
+    3. Table enters edit mode automatically
+    4. Add fields and configure
+  </Step>
+  
+  <Step title="Create Relationship">
+    **Method 1: Visual**
+    1. Right-click source table → **Add Relationship**
+    2. Click target table
+    3. Configure in dialog
+    
+    **Method 2: Dialog**
+    1. Right-click canvas → **New Relationship**
+    2. Select tables and fields
+    3. Set cardinality
+  </Step>
+  
+  <Step title="Create Area">
+    1. Right-click canvas at desired position
+    2. Select **New Area**
+    3. Resize and rename as needed
+    4. Drag tables into area
+  </Step>
+  
+  <Step title="Create Note">
+    1. Right-click canvas at desired position
+    2. Select **New Note**
+    3. Double-click to edit content
+    4. Resize to fit content
+  </Step>
+</Steps>
+
+## Browser-Specific Shortcuts
+
+<Warning>
+  Some shortcuts may conflict with browser shortcuts. ChartDB attempts to prevent default browser behavior, but some may still trigger.
+</Warning>
+
+### Known Conflicts
+
+<Accordion title="macOS Safari">
+  - `⌘L` - Address bar (cannot be overridden)
+  - `⌘T` - New tab (cannot be overridden)
+  - `⌘W` - Close tab (cannot be overridden)
+  
+  **Workaround:** Use context menus instead.
+</Accordion>
+
+<Accordion title="Windows Chrome">
+  - `Ctrl+T` - New tab
+  - `Ctrl+W` - Close tab
+  - `Ctrl+N` - New window
+  
+  **Workaround:** Use context menus for conflicting actions.
+</Accordion>
+
+<Accordion title="All Browsers">
+  - `Ctrl+F` / `⌘F` - ChartDB uses this for filter, but browser may try to open find dialog
+  
+  **Solution:** ChartDB prevents default, so this should work correctly.
+</Accordion>
+
+## Productivity Tips
+
+<AccordionGroup>
+  <Accordion title="Learn the Big 5">
+    Master these five shortcuts first:
+    1. `⌘Z` / `Ctrl+Z` - Undo
+    2. `⌘S` / `Ctrl+S` - Save
+    3. `⌘B` / `Ctrl+B` - Toggle sidebar
+    4. `⌘0` / `Ctrl+0` - Show all
+    5. `⌘F` / `Ctrl+F` - Filter
+    
+    These cover 80% of common operations.
+  </Accordion>
+  
+  <Accordion title="Right-Click is Your Friend">
+    The context menu adapts based on what you click:
+    - Empty canvas: Creation options
+    - Table: Table operations  
+    - Area: Area operations
+    - Relationship: Relationship editing
+    
+    When in doubt, right-click!
+  </Accordion>
+  
+  <Accordion title="Use Undo Liberally">
+    Don't be afraid to experiment:
+    - ChartDB has comprehensive undo/redo
+    - Almost all actions are undoable
+    - Auto-save protects against data loss
+    
+    Try things and undo if they don't work out.
+  </Accordion>
+  
+  <Accordion title="Sidebar Toggle for Focus">
+    - Hide sidebar (`⌘B` / `Ctrl+B`) when working on canvas
+    - Show sidebar when you need to browse or search
+    - More screen real estate = easier diagram editing
+  </Accordion>
+  
+  <Accordion title="Show All for Orientation">
+    Press `⌘0` / `Ctrl+0` regularly to:
+    - See where you are in the diagram
+    - Check overall layout
+    - Find elements you've lost track of
+    - Take mental snapshots of structure
+  </Accordion>
+</AccordionGroup>
+
+## Platform Differences
+
+ChartDB automatically detects your operating system and adapts:
+
+<Tabs>
+  <Tab title="macOS">
+    - Uses `⌘` (Command) key as modifier
+    - Displays shortcuts with Mac symbols (⌘, ⇧, ⌥)
+    - Follows Mac conventions
+    
+    **Key Mapping:**
+    - `⌘` = Command (Cmd)
+    - `⌥` = Option (Alt)
+    - `⇧` = Shift
+    - `⌃` = Control
+  </Tab>
+  
+  <Tab title="Windows/Linux">
+    - Uses `Ctrl` key as modifier
+    - Displays shortcuts with standard notation
+    - Follows Windows conventions
+    
+    **Key Mapping:**
+    - `Ctrl` = Control
+    - `Alt` = Alt  
+    - `Shift` = Shift
+  </Tab>
+</Tabs>
+
+## Shortcut Reference Card
+
+Print-friendly quick reference:
+
+```text
+CHARTDB KEYBOARD SHORTCUTS
+
+File Operations:
+  Open Diagram         ⌘O / Ctrl+O
+  Save Diagram         ⌘S / Ctrl+S
+
+Edit Operations:
+  Undo                 ⌘Z / Ctrl+Z
+  Redo                 ⇧⌘Z / Ctrl+Shift+Z
+
+View Controls:
+  Toggle Sidebar       ⌘B / Ctrl+B
+  Show All Elements    ⌘0 / Ctrl+0
+  Toggle Theme         ⌘M / Ctrl+M
+  Toggle Filter        ⌘F / Ctrl+F
+
+Canvas:
+  Pan                  Click + Drag
+  Zoom                 Mouse Wheel / Pinch
+  Context Menu         Right-Click
+
+Creation (via right-click):
+  New Table            Right-click → New Table
+  New Relationship     Right-click → New Relationship
+  New Area             Right-click → New Area
+  New Note             Right-click → New Note
+```
+
+## Customization
+
+<Info>
+  ChartDB does not currently support custom keyboard shortcuts. The default shortcuts are optimized for common workflows and consistency across platforms.
+</Info>
+
+If you need different shortcuts:
+- Use browser extensions that allow keyboard remapping
+- Consider accessibility tools that provide keyboard customization
+- Submit feature requests for specific shortcuts you need
+
+## Accessibility
+
+### Keyboard-Only Navigation
+
+ChartDB supports basic keyboard-only navigation:
+
+- **Tab** - Navigate between interactive elements
+- **Enter** - Activate buttons and inputs
+- **Escape** - Close dialogs and cancel actions
+- **Arrow keys** - Navigate within dropdowns and lists
+
+<Note>
+  Full keyboard-only navigation is limited for canvas operations. A mouse or pointing device is recommended for diagram creation and editing.
+</Note>
+
+### Screen Reader Support
+
+ChartDB includes ARIA labels and semantic HTML for screen reader compatibility, but the visual canvas nature limits full accessibility. For accessible database documentation:
+
+- Export schema to SQL with comments
+- Generate text-based documentation
+- Use the sidebar lists instead of canvas
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Diagrams" icon="plus-circle" href="/guides/creating-diagrams">
+    Start creating diagrams efficiently
+  </Card>
+  
+  <Card title="Editing Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Learn table editing workflows
+  </Card>
+  
+  <Card title="Managing Relationships" icon="link" href="/guides/managing-relationships">
+    Master relationship creation
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running quickly
+  </Card>
+</CardGroup>

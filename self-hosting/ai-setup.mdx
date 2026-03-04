@@ -1,0 +1,671 @@
+---
+title: 'AI Setup'
+description: 'Configure AI features for intelligent DDL generation and database migrations'
+icon: 'brain'
+---
+
+ChartDB's AI features enable intelligent DDL script generation for easy database migrations. You can use OpenAI's GPT models or self-hosted LLM inference servers.
+
+## What AI Features Do
+
+ChartDB's AI capabilities include:
+
+<CardGroup cols={2}>
+  <Card title="DDL Export" icon="file-export">
+    Generate DDL scripts in any database dialect for migrations
+  </Card>
+  <Card title="Smart Conversion" icon="shuffle">
+    Convert schemas between MySQL, PostgreSQL, SQLite, SQL Server, etc.
+  </Card>
+  <Card title="Dialect Translation" icon="language">
+    Translate database-specific syntax to your target platform
+  </Card>
+  <Card title="Schema Optimization" icon="wand-magic-sparkles">
+    Get suggestions for schema improvements and best practices
+  </Card>
+</CardGroup>
+
+<Info>
+AI features are **completely optional**. ChartDB works perfectly without AI for schema visualization and manual editing.
+</Info>
+
+## Option 1: OpenAI API
+
+The simplest way to enable AI features is using OpenAI's API.
+
+### Get an API Key
+
+<Steps>
+  <Step title="Create OpenAI Account">
+    Sign up at [platform.openai.com](https://platform.openai.com)
+  </Step>
+  
+  <Step title="Add Payment Method">
+    Navigate to **Billing** → **Payment methods** and add a payment method
+  </Step>
+  
+  <Step title="Generate API Key">
+    Go to **API Keys** → **Create new secret key**
+    
+    <Warning>
+    Copy the key immediately - you won't be able to see it again!
+    </Warning>
+  </Step>
+  
+  <Step title="Set Usage Limits">
+    Under **Billing** → **Usage limits**, set a monthly budget to prevent unexpected charges
+  </Step>
+</Steps>
+
+### Configure ChartDB
+
+<Tabs>
+  <Tab title="Docker Runtime">
+    Pass the API key when running the container:
+    
+    ```bash
+    docker run \
+      -e OPENAI_API_KEY=sk-proj-your-key-here \
+      -p 8080:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Check>
+    **Recommended**: Runtime configuration keeps secrets out of images
+    </Check>
+  </Tab>
+  
+  <Tab title="Docker Build">
+    Embed the API key during build:
+    
+    ```bash
+    docker build \
+      --build-arg VITE_OPENAI_API_KEY=sk-proj-your-key-here \
+      -t chartdb .
+    
+    docker run -p 8080:80 chartdb
+    ```
+    
+    <Warning>
+    The API key will be embedded in the image. Use runtime configuration for production.
+    </Warning>
+  </Tab>
+  
+  <Tab title="NPM Development">
+    Set the environment variable before running:
+    
+    ```bash
+    # Linux/Mac
+    export VITE_OPENAI_API_KEY=sk-proj-your-key-here
+    npm run dev
+    
+    # Or inline
+    VITE_OPENAI_API_KEY=sk-proj-your-key-here npm run dev
+    ```
+    
+    ```powershell
+    # Windows PowerShell
+    $env:VITE_OPENAI_API_KEY="sk-proj-your-key-here"
+    npm run dev
+    ```
+  </Tab>
+  
+  <Tab title="NPM Build">
+    Build with the API key:
+    
+    ```bash
+    VITE_OPENAI_API_KEY=sk-proj-your-key-here npm run build
+    npm run preview
+    ```
+  </Tab>
+</Tabs>
+
+### Test the Configuration
+
+<Steps>
+  <Step title="Open ChartDB">
+    Navigate to `http://localhost:8080` (or your configured port)
+  </Step>
+  
+  <Step title="Create or Import Schema">
+    Create a new diagram or import an existing database schema
+  </Step>
+  
+  <Step title="Export with AI">
+    Click **Export** → **AI-Powered Export** and select a target database
+  </Step>
+  
+  <Step title="Verify Output">
+    You should see a DDL script generated for your target database dialect
+  </Step>
+</Steps>
+
+<Info>
+If AI features aren't working, check the browser console (F12) for error messages about the API key.
+</Info>
+
+## Option 2: Self-Hosted LLM
+
+For complete data privacy or to avoid API costs, use a self-hosted LLM inference server.
+
+### Supported Inference Servers
+
+Any server compatible with OpenAI's API format will work:
+
+<Tabs>
+  <Tab title="vLLM">
+    High-performance inference server optimized for throughput.
+    
+    **Installation:**
+    ```bash
+    pip install vllm
+    ```
+    
+    **Run Server:**
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+      --model Qwen/Qwen2.5-32B-Instruct-AWQ \
+      --port 8000
+    ```
+    
+    **Configure ChartDB:**
+    ```bash
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:8000/v1 \
+      -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+      -p 8080:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Info>
+    vLLM is excellent for high-throughput scenarios and supports many quantization formats (AWQ, GPTQ, etc.)
+    </Info>
+  </Tab>
+  
+  <Tab title="Ollama">
+    Easy-to-use local LLM server with simple setup.
+    
+    **Installation:**
+    ```bash
+    # Download from ollama.ai
+    curl -fsSL https://ollama.ai/install.sh | sh
+    ```
+    
+    **Run Server:**
+    ```bash
+    # Pull a model
+    ollama pull llama3.1
+    
+    # Server starts automatically
+    # Ollama uses port 11434 by default
+    ```
+    
+    **Configure ChartDB:**
+    ```bash
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:11434/v1 \
+      -e LLM_MODEL_NAME=llama3.1 \
+      -p 8080:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Check>
+    Ollama is the easiest option for local LLMs with automatic model management.
+    </Check>
+  </Tab>
+  
+  <Tab title="LocalAI">
+    Drop-in replacement for OpenAI API with many model formats.
+    
+    **Installation:**
+    ```bash
+    docker run -p 8080:8080 \
+      -v $PWD/models:/models \
+      localai/localai:latest
+    ```
+    
+    **Configure ChartDB:**
+    ```bash
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:8080/v1 \
+      -e LLM_MODEL_NAME=gpt-3.5-turbo \
+      -p 8081:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Note>
+    LocalAI supports GGUF, GGML, and other quantized formats. Check their docs for model configuration.
+    </Note>
+  </Tab>
+  
+  <Tab title="LM Studio">
+    Desktop application with built-in model browser and API server.
+    
+    **Setup:**
+    1. Download from [lmstudio.ai](https://lmstudio.ai)
+    2. Search and download a model (e.g., "Qwen 2.5")
+    3. Load the model
+    4. Click **Start Server** (usually port 1234)
+    
+    **Configure ChartDB:**
+    ```bash
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:1234/v1 \
+      -e LLM_MODEL_NAME=qwen2.5-7b-instruct \
+      -p 8080:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Check>
+    LM Studio is perfect for desktop users who want a GUI for model management.
+    </Check>
+  </Tab>
+</Tabs>
+
+### Recommended Models
+
+For DDL generation and schema conversion, these models work well:
+
+| Model | Size | Quality | Speed | Memory |
+|-------|------|---------|-------|--------|
+| **Qwen 2.5 32B** | 32B | Excellent | Medium | 20GB+ |
+| **Qwen 2.5 14B** | 14B | Very Good | Fast | 10GB+ |
+| **Qwen 2.5 7B** | 7B | Good | Very Fast | 6GB+ |
+| **Llama 3.1 70B** | 70B | Excellent | Slow | 40GB+ |
+| **Llama 3.1 8B** | 8B | Good | Very Fast | 6GB+ |
+| **Mistral 7B** | 7B | Good | Very Fast | 6GB+ |
+
+<Info>
+Use **quantized models** (AWQ, GPTQ, or GGUF) to reduce memory requirements. A 32B AWQ model can run in ~20GB RAM instead of 64GB.
+</Info>
+
+### Configuration Examples
+
+#### Complete vLLM Setup
+
+```bash
+# 1. Start vLLM server
+docker run --gpus all -p 8000:8000 \
+  vllm/vllm-openai:latest \
+  --model Qwen/Qwen2.5-32B-Instruct-AWQ \
+  --quantization awq
+
+# 2. Build ChartDB with vLLM config
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  --build-arg VITE_DISABLE_ANALYTICS=true \
+  -t chartdb-vllm .
+
+# 3. Run ChartDB (use host network on Linux)
+docker run --network host chartdb-vllm
+
+# Or on Mac/Windows:
+docker run \
+  -e OPENAI_API_ENDPOINT=http://host.docker.internal:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 \
+  chartdb-vllm
+```
+
+#### Ollama with Docker Compose
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  chartdb:
+    image: ghcr.io/chartdb/chartdb:latest
+    ports:
+      - "8080:80"
+    environment:
+      - OPENAI_API_ENDPOINT=http://ollama:11434/v1
+      - LLM_MODEL_NAME=llama3.1
+      - HIDE_CHARTDB_CLOUD=true
+      - DISABLE_ANALYTICS=true
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+```
+
+```bash
+# Start services
+docker-compose up -d
+
+# Pull model into Ollama
+docker-compose exec ollama ollama pull llama3.1
+
+# Access ChartDB
+open http://localhost:8080
+```
+
+### Network Configuration
+
+When running both the LLM server and ChartDB in Docker:
+
+<Tabs>
+  <Tab title="Linux">
+    Use `--network host` for simplest setup:
+    
+    ```bash
+    # LLM server
+    docker run --network host vllm/vllm-openai:latest --model ...
+    
+    # ChartDB
+    docker run --network host \
+      -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+      -e LLM_MODEL_NAME=your-model \
+      chartdb
+    ```
+  </Tab>
+  
+  <Tab title="Mac/Windows">
+    Use `host.docker.internal` to reach host machine:
+    
+    ```bash
+    # LLM server on host
+    python -m vllm.entrypoints.openai.api_server --model ... --port 8000
+    
+    # ChartDB in Docker
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:8000/v1 \
+      -e LLM_MODEL_NAME=your-model \
+      -p 8080:80 \
+      chartdb
+    ```
+  </Tab>
+  
+  <Tab title="Docker Compose">
+    Use service names for networking:
+    
+    ```yaml
+    services:
+      vllm:
+        image: vllm/vllm-openai:latest
+        ports:
+          - "8000:8000"
+      
+      chartdb:
+        image: ghcr.io/chartdb/chartdb:latest
+        environment:
+          # Use service name
+          - OPENAI_API_ENDPOINT=http://vllm:8000/v1
+          - LLM_MODEL_NAME=your-model
+    ```
+  </Tab>
+</Tabs>
+
+## Hybrid Setup
+
+You can switch between OpenAI and self-hosted LLMs by changing environment variables:
+
+```bash
+# Use OpenAI during development
+docker run -e OPENAI_API_KEY=sk-... -p 8080:80 chartdb
+
+# Switch to self-hosted for production
+docker run \
+  -e OPENAI_API_ENDPOINT=http://vllm:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 chartdb
+```
+
+<Warning>
+**Never configure both options simultaneously**
+
+Use **either**:
+- `OPENAI_API_KEY` (for OpenAI)
+
+**OR**:
+- `OPENAI_API_ENDPOINT` + `LLM_MODEL_NAME` (for self-hosted)
+
+Configuring both will cause conflicts.
+</Warning>
+
+## AI Feature Usage
+
+Once configured, use AI features in ChartDB:
+
+<Steps>
+  <Step title="Create/Import Schema">
+    Create a new diagram or import your database schema using the Smart Query
+  </Step>
+  
+  <Step title="Open Export">
+    Click the **Export** button in the top toolbar
+  </Step>
+  
+  <Step title="Select AI Export">
+    Choose **AI-Powered Export** from the export options
+  </Step>
+  
+  <Step title="Choose Target Database">
+    Select your target database dialect:
+    - PostgreSQL
+    - MySQL
+    - SQL Server
+    - MariaDB
+    - SQLite
+    - CockroachDB
+    - ClickHouse
+  </Step>
+  
+  <Step title="Generate DDL">
+    The AI will generate optimized DDL scripts for your target database
+  </Step>
+  
+  <Step title="Review & Copy">
+    Review the generated script and copy it for use in your migration
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="AI features not appearing">
+    **Cause**: Environment variables not set correctly
+    
+    **Solution**:
+    ```bash
+    # Check container environment
+    docker exec <container-id> env | grep -E 'OPENAI|LLM'
+    
+    # Verify config.js endpoint
+    curl http://localhost:8080/config.js
+    
+    # Check browser console (F12) for errors
+    ```
+    
+    Ensure you're using the correct variable names (no `VITE_` prefix for runtime).
+  </Accordion>
+
+  <Accordion title="Cannot connect to inference server">
+    **Cause**: Network configuration or incorrect endpoint
+    
+    **Solution**:
+    ```bash
+    # Test from ChartDB container
+    docker exec <container-id> wget -O- http://your-endpoint/v1/models
+    
+    # For localhost servers, use correct hostname:
+    # - Linux: http://localhost:8000/v1
+    # - Mac/Windows: http://host.docker.internal:8000/v1
+    # - Docker Compose: http://service-name:8000/v1
+    ```
+    
+    Verify the endpoint is accessible from the ChartDB container.
+  </Accordion>
+
+  <Accordion title="Model not found error">
+    **Cause**: Model name doesn't match what's loaded in the server
+    
+    **Solution**:
+    ```bash
+    # Check available models
+    curl http://localhost:8000/v1/models
+    
+    # Ensure LLM_MODEL_NAME matches exactly
+    # For vLLM, use the full model path:
+    -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ
+    
+    # For Ollama, use the model name:
+    -e LLM_MODEL_NAME=llama3.1
+    ```
+  </Accordion>
+
+  <Accordion title="Slow or timeout errors">
+    **Cause**: Model is too large or not enough resources
+    
+    **Solution**:
+    - Use a smaller/quantized model (7B instead of 32B)
+    - Increase memory allocation for Docker
+    - Use GPU acceleration if available
+    - Increase timeout in your inference server
+    
+    ```bash
+    # vLLM with GPU
+    docker run --gpus all vllm/vllm-openai:latest --model ...
+    
+    # Increase Docker memory (Docker Desktop)
+    # Settings → Resources → Memory → 16GB+
+    ```
+  </Accordion>
+
+  <Accordion title="Poor quality DDL output">
+    **Cause**: Model too small or not suited for code generation
+    
+    **Solution**:
+    - Use larger models (14B+ recommended)
+    - Try Qwen 2.5 series (optimized for code)
+    - Ensure model supports instruction following
+    - Check if quantization is too aggressive (Q4 vs Q8)
+    
+    Recommended models for best results:
+    - Qwen 2.5 32B Instruct (AWQ)
+    - Qwen 2.5 14B Instruct
+    - Llama 3.1 70B Instruct
+  </Accordion>
+
+  <Accordion title="Mixed configuration error">
+    **Cause**: Both OpenAI and custom endpoint configured
+    
+    **Solution**:
+    ```bash
+    # Remove one configuration set
+    
+    # Option 1: OpenAI only
+    docker run -e OPENAI_API_KEY=sk-... chartdb
+    
+    # Option 2: Custom endpoint only
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://... \
+      -e LLM_MODEL_NAME=... \
+      chartdb
+    
+    # NOT: Both together
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+### Hardware Requirements
+
+For self-hosted LLMs:
+
+| Model Size | RAM Required | GPU Memory | Speed |
+|------------|-------------|------------|-------|
+| 7B (Q4) | 6 GB | 4 GB | Fast |
+| 7B (Q8) | 8 GB | 6 GB | Fast |
+| 14B (AWQ) | 10 GB | 8 GB | Medium |
+| 32B (AWQ) | 20 GB | 16 GB | Medium |
+| 70B (AWQ) | 40 GB | 32 GB | Slow |
+
+<Info>
+**AWQ** and **GPTQ** quantization provide the best quality-to-size ratio. **Q4** is fast but lower quality.
+</Info>
+
+### Optimization Tips
+
+<CardGroup cols={2}>
+  <Card title="Use Quantization" icon="compress">
+    AWQ or GPTQ models offer 2-3x memory reduction with minimal quality loss
+  </Card>
+  <Card title="GPU Acceleration" icon="rocket">
+    Use `--gpus all` with vLLM or enable GPU in LM Studio for 10-50x speedup
+  </Card>
+  <Card title="Batch Inference" icon="layer-group">
+    vLLM automatically batches requests for better throughput
+  </Card>
+  <Card title="Model Caching" icon="database">
+    Keep models loaded in memory to avoid reload overhead
+  </Card>
+</CardGroup>
+
+## Security & Privacy
+
+Self-hosted LLMs provide complete data privacy:
+
+<Check>
+**Benefits of Self-Hosting:**
+- Schema data never leaves your network
+- No external API calls
+- Full audit trail
+- No usage limits or costs
+- Compliance with data regulations (GDPR, HIPAA, etc.)
+</Check>
+
+**Best Practices:**
+
+<Steps>
+  <Step title="Network Isolation">
+    Run LLM servers on isolated networks with no internet access
+  </Step>
+  
+  <Step title="Access Control">
+    Use authentication for inference server APIs in production
+  </Step>
+  
+  <Step title="Monitoring">
+    Log all AI requests for audit purposes
+  </Step>
+  
+  <Step title="Model Validation">
+    Verify model sources and checksums before deployment
+  </Step>
+</Steps>
+
+## Cost Comparison
+
+| Option | Setup Cost | Running Cost | Privacy | Performance |
+|--------|------------|--------------|---------|-------------|
+| **OpenAI API** | Free | ~$0.01-0.10 per request | ⚠️ Data sent to OpenAI | Fast (API latency) |
+| **Self-hosted (CPU)** | Free | ~$0.50/hr server cost | ✅ Complete privacy | Slow (CPU inference) |
+| **Self-hosted (GPU)** | $500-5000 hardware | ~$0.10-1.00/hr electricity | ✅ Complete privacy | Fast (GPU inference) |
+| **Cloud GPU (AWS/GCP)** | Free | ~$1-5/hr instance cost | ⚠️ Data in cloud | Fast (GPU inference) |
+
+<Info>
+For occasional use, OpenAI API is most cost-effective. For frequent use or privacy requirements, self-hosted is better.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/self-hosting/docker">
+    Learn how to deploy ChartDB with Docker
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/self-hosting/configuration">
+    Explore all configuration options
+  </Card>
+</CardGroup>

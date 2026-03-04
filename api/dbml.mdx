@@ -1,0 +1,508 @@
+---
+title: 'DBML'
+description: 'Import and export Database Markup Language (DBML) format'
+---
+
+## Overview
+
+DBML (Database Markup Language) is a simple, readable format for defining database schemas. ChartDB supports both importing DBML to create diagrams and exporting diagrams to DBML.
+
+## DBML Import
+
+### importDBMLToDiagram
+
+Imports DBML content and creates a ChartDB diagram:
+
+```typescript
+const importDBMLToDiagram = async (
+    dbmlContent: string,
+    options: {
+        databaseType: DatabaseType;
+    }
+): Promise<Diagram> => {
+    // Parse and convert DBML to diagram
+};
+```
+
+<ParamField path="dbmlContent" type="string" required>
+  DBML content as a string
+</ParamField>
+
+<ParamField path="options.databaseType" type="DatabaseType" required>
+  Target database type for the diagram
+</ParamField>
+
+### Preprocessing
+
+DBML is preprocessed before parsing:
+
+```typescript
+interface PreprocessDBMLResult {
+    content: string;
+    arrayFields: Map<string, Set<string>>;
+    fieldChecks: Map<string, Map<string, FieldCheckConstraint>>;
+    tableChecks: Map<string, TableCheckConstraint[]>;
+}
+
+const preprocessDBML = (content: string): PreprocessDBMLResult => {
+    // Remove unsupported features
+    // Extract array field syntax
+    // Extract check constraints
+    // Normalize formatting
+};
+```
+
+Preprocessing handles:
+- Array types (`text[]`, `integer[]`)
+- Check constraints (`check: \`expression\``)
+- Table groups (removed)
+- Note blocks (removed)
+- Special characters normalization
+
+## DBML Export
+
+### generateDBMLFromDiagram
+
+Exports a diagram to DBML format:
+
+```typescript
+interface DBMLExportResult {
+    standardDbml: string;        // Standard DBML with separate Ref blocks
+    inlineDbml: string;          // DBML with inline ref syntax
+    relationshipsDbml: string;   // Only Ref statements
+    error?: string;
+}
+
+function generateDBMLFromDiagram(diagram: Diagram): DBMLExportResult {
+    // Convert diagram to DBML
+}
+```
+
+## DBML Syntax
+
+### Table Definition
+
+```dbml
+Table users {
+    id uuid [pk, default: `gen_random_uuid()`]
+    email varchar(255) [not null, unique]
+    created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+    status user_status [not null, default: 'active']
+    tags text[] [note: 'Array of user tags']
+    
+    indexes {
+        email [unique, name: 'idx_users_email']
+        (last_name, first_name) [name: 'idx_users_name']
+    }
+    
+    checks {
+        `email LIKE '%@%'`
+        `length(email) > 5` [name: 'email_length_check']
+    }
+    
+    Note: 'User accounts and authentication'
+}
+```
+
+### Field Attributes
+
+<ParamField path="pk" type="attribute">
+  Primary key
+  ```dbml
+  id integer [pk]
+  ```
+</ParamField>
+
+<ParamField path="not null" type="attribute">
+  NOT NULL constraint
+  ```dbml
+  email varchar [not null]
+  ```
+</ParamField>
+
+<ParamField path="unique" type="attribute">
+  UNIQUE constraint
+  ```dbml
+  email varchar [unique]
+  ```
+</ParamField>
+
+<ParamField path="increment" type="attribute">
+  Auto-increment (database-specific)
+  ```dbml
+  id integer [pk, increment]
+  ```
+</ParamField>
+
+<ParamField path="default" type="attribute">
+  Default value
+  ```dbml
+  status varchar [default: 'active']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  ```
+</ParamField>
+
+<ParamField path="note" type="attribute">
+  Field comment/description
+  ```dbml
+  email varchar [note: 'User email address']
+  ```
+</ParamField>
+
+### Composite Primary Key
+
+```dbml
+Table order_items {
+    order_id integer
+    product_id integer
+    quantity integer
+    
+    indexes {
+        (order_id, product_id) [pk, name: 'order_items_pkey']
+    }
+}
+```
+
+### Relationships
+
+#### Standard Ref Syntax
+
+```dbml
+Ref fk_orders_user_id: users.id < orders.user_id
+```
+
+Cardinality symbols:
+- `<` : one-to-many (users.id is one, orders.user_id is many)
+- `>` : many-to-one (opposite direction)
+- `-` : one-to-one
+- `<>` : many-to-many
+
+#### Inline Ref Syntax
+
+```dbml
+Table orders {
+    id integer [pk]
+    user_id integer [ref: > users.id]
+}
+```
+
+### Indexes
+
+```dbml
+Table products {
+    id integer [pk]
+    name varchar
+    category_id integer
+    metadata jsonb
+    tags text[]
+    
+    indexes {
+        name [unique]
+        category_id [name: 'idx_products_category']
+        (category_id, name) [name: 'idx_products_cat_name']
+        metadata [type: gin, name: 'idx_products_metadata']
+        tags [type: gin, name: 'idx_products_tags']
+    }
+}
+```
+
+<ParamField path="unique" type="index attribute">
+  Unique index
+  ```dbml
+  email [unique]
+  ```
+</ParamField>
+
+<ParamField path="name" type="index attribute">
+  Index name
+  ```dbml
+  email [name: 'idx_users_email']
+  ```
+</ParamField>
+
+<ParamField path="type" type="index attribute">
+  Index type (PostgreSQL: btree, hash, gin, gist)
+  ```dbml
+  tags [type: gin]
+  ```
+</ParamField>
+
+### Enums
+
+```dbml
+Enum user_status {
+    "active"
+    "inactive"
+    "suspended"
+}
+
+Table users {
+    id integer [pk]
+    status user_status [not null, default: 'active']
+}
+```
+
+### Schemas
+
+```dbml
+Table "public"."users" {
+    id integer [pk]
+}
+
+Table "auth"."sessions" {
+    id integer [pk]
+    user_id integer [ref: > public.users.id]
+}
+```
+
+## Import Example
+
+```typescript
+import { importDBMLToDiagram } from './dbml-import';
+import { DatabaseType } from './database-type';
+
+const dbmlContent = `
+Table users {
+    id uuid [pk, default: \`gen_random_uuid()\`]
+    email varchar(255) [not null, unique]
+    created_at timestamp [default: \`CURRENT_TIMESTAMP\`]
+    tags text[]
+    
+    indexes {
+        email [unique, name: 'idx_users_email']
+        tags [type: gin, name: 'idx_users_tags']
+    }
+}
+
+Table orders {
+    id bigserial [pk]
+    user_id uuid [not null]
+    total decimal(10, 2) [not null, default: 0.00]
+    
+    indexes {
+        user_id [name: 'idx_orders_user_id']
+    }
+}
+
+Ref fk_orders_user_id: users.id < orders.user_id
+`;
+
+const diagram = await importDBMLToDiagram(dbmlContent, {
+    databaseType: DatabaseType.POSTGRESQL
+});
+
+console.log(`Imported ${diagram.tables?.length} tables`);
+console.log(`Imported ${diagram.relationships?.length} relationships`);
+```
+
+## Export Example
+
+```typescript
+import { generateDBMLFromDiagram } from './dbml-export';
+
+const result = generateDBMLFromDiagram(diagram);
+
+console.log('Standard DBML:');
+console.log(result.standardDbml);
+
+console.log('\nInline DBML:');
+console.log(result.inlineDbml);
+
+console.log('\nRelationships only:');
+console.log(result.relationshipsDbml);
+```
+
+Output:
+
+```dbml
+Enum "public"."user_status" {
+    "active"
+    "inactive"
+    "suspended"
+}
+
+Table "public"."users" {
+    "id" uuid [pk, not null, default: `gen_random_uuid()`]
+    "email" varchar(255) [not null, unique, note: 'User email address']
+    "status" user_status [not null, default: 'active']
+    "created_at" timestamp [not null, default: `CURRENT_TIMESTAMP`]
+    "tags" text[] [note: 'User tags']
+    
+    indexes {
+        "email" [unique, name: "idx_users_email"]
+        "tags" [type: gin, name: "idx_users_tags"]
+    }
+    
+    checks {
+        `email LIKE '%@%'`
+    }
+    
+    Note: 'User accounts and authentication'
+}
+
+Table "public"."orders" {
+    "id" bigserial [pk, not null, increment]
+    "user_id" uuid [not null]
+    "total" decimal(10, 2) [not null, default: 0.00]
+    
+    indexes {
+        "user_id" [name: "idx_orders_user_id"]
+    }
+}
+
+Ref "fk_orders_user_id":"public"."users"."id" < "public"."orders"."user_id"
+```
+
+## Advanced Features
+
+### Array Types (PostgreSQL)
+
+```dbml
+Table posts {
+    id integer [pk]
+    tags text[] [note: 'Post tags array']
+    scores integer[]
+}
+```
+
+### Check Constraints
+
+Field-level:
+```dbml
+Table products {
+    price decimal(10, 2) [check: `price > 0`]
+}
+```
+
+Table-level:
+```dbml
+Table products {
+    price decimal(10, 2)
+    discount decimal(5, 2)
+    
+    checks {
+        `price > 0`
+        `discount >= 0 AND discount <= 100`
+        `price > discount` [name: 'price_gt_discount']
+    }
+}
+```
+
+### Composite Indexes
+
+```dbml
+Table users {
+    id integer [pk]
+    last_name varchar(100)
+    first_name varchar(100)
+    
+    indexes {
+        (last_name, first_name) [name: 'idx_users_name']
+    }
+}
+```
+
+### Table Notes
+
+```dbml
+Table users {
+    id integer [pk]
+    
+    Note: 'User accounts and authentication data'
+}
+
+// Or multi-line
+Note users {
+    '''
+    User accounts table
+    Contains authentication and profile information
+    '''
+}
+```
+
+## Conversion to SQL
+
+DBML can be converted to SQL via ChartDB:
+
+1. Import DBML to diagram
+2. Export diagram to SQL for target database
+
+```typescript
+import { importDBMLToDiagram } from './dbml-import';
+import { exportBaseSQL } from './sql-export';
+import { DatabaseType } from './database-type';
+
+// Import DBML
+const diagram = await importDBMLToDiagram(dbmlContent, {
+    databaseType: DatabaseType.POSTGRESQL
+});
+
+// Export to PostgreSQL
+const postgresSQL = exportBaseSQL({
+    diagram,
+    targetDatabaseType: DatabaseType.POSTGRESQL
+});
+
+// Export to MySQL
+const mysqlSQL = exportBaseSQL({
+    diagram,
+    targetDatabaseType: DatabaseType.MYSQL
+});
+```
+
+## Error Handling
+
+```typescript
+import { DBMLValidationError } from './dbml-import-error';
+
+try {
+    const diagram = await importDBMLToDiagram(dbmlContent, {
+        databaseType: DatabaseType.POSTGRESQL
+    });
+} catch (error) {
+    if (error instanceof DBMLValidationError) {
+        console.error(`DBML validation error at line ${error.line}, column ${error.column}:`);
+        console.error(error.message);
+    } else {
+        console.error('Parsing error:', error);
+    }
+}
+```
+
+## Best Practices
+
+1. **Always quote identifiers with special characters**
+   ```dbml
+   Table "user-accounts" {
+       "user-id" integer [pk]
+   }
+   ```
+
+2. **Use backticks for SQL expressions**
+   ```dbml
+   created_at timestamp [default: `CURRENT_TIMESTAMP`]
+   ```
+
+3. **Specify schemas for clarity**
+   ```dbml
+   Table "public"."users" { }
+   ```
+
+4. **Use descriptive index names**
+   ```dbml
+   indexes {
+       email [unique, name: 'idx_users_email']
+   }
+   ```
+
+5. **Add notes for documentation**
+   ```dbml
+   id integer [pk, note: 'Primary key - auto-generated']
+   ```
+
+## Related
+
+- [SQL Import](/api/sql-import)
+- [SQL Export](/api/sql-export)
+- [Diagram](/api/diagram)
+- [Database Types](/api/database-types)

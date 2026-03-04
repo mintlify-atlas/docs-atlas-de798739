@@ -1,0 +1,530 @@
+---
+title: Managing Relationships
+description: Create and manage relationships between tables in ChartDB
+icon: 'link'
+---
+
+## Understanding Relationships
+
+Relationships define how tables connect to each other through foreign keys. ChartDB supports all standard relationship types and provides visual tools for managing them.
+
+## Relationship Types
+
+ChartDB supports four relationship cardinalities:
+
+<CardGroup cols={2}>
+  <Card title="One-to-One (1:1)" icon="1">
+    Each record in Table A relates to exactly one record in Table B.
+    
+    **Example:** User → UserProfile
+  </Card>
+  
+  <Card title="One-to-Many (1:N)" icon="layer-group">
+    Each record in Table A relates to multiple records in Table B.
+    
+    **Example:** Customer → Orders
+  </Card>
+  
+  <Card title="Many-to-One (N:1)" icon="arrow-left">
+    Multiple records in Table A relate to one record in Table B.
+    
+    **Example:** Orders → Customer
+  </Card>
+  
+  <Card title="Many-to-Many (N:M)" icon="grid">
+    Records in both tables can relate to multiple records in the other table (requires junction table).
+    
+    **Example:** Students ↔ Courses
+  </Card>
+</CardGroup>
+
+## Creating Relationships
+
+### Method 1: Visual Connection (Recommended)
+
+The fastest way to create relationships:
+
+<Steps>
+  <Step title="Start Connection">
+    Right-click on a table and select **Add Relationship**.
+    
+    A floating connection line will appear from the table.
+  </Step>
+  
+  <Step title="Select Target Table">
+    Click on the target table to complete the relationship.
+    
+    ChartDB will automatically select matching fields if available.
+  </Step>
+  
+  <Step title="Configure Relationship">
+    A relationship configuration dialog appears. Set:
+    - Source field (foreign key field)
+    - Target field (primary key field)
+    - Relationship cardinality
+    - Relationship name (optional)
+  </Step>
+</Steps>
+
+<Tip>
+  ChartDB automatically detects and suggests relationships when field names match the pattern `{table}_id` → `{table}.id`.
+</Tip>
+
+### Method 2: Create Relationship Dialog
+
+For more control over relationship creation:
+
+<Steps>
+  <Step title="Open Dialog">
+    Right-click on the canvas and select **New Relationship**.
+  </Step>
+  
+  <Step title="Select Tables">
+    Choose:
+    - Source table
+    - Target table
+  </Step>
+  
+  <Step title="Select Fields">
+    Choose:
+    - Source field (the foreign key)
+    - Target field (usually the primary key)
+  </Step>
+  
+  <Step title="Set Cardinality">
+    Choose the relationship type:
+    - One-to-One (1:1)
+    - One-to-Many (1:N)
+    - Many-to-One (N:1)
+    - Many-to-Many (N:M)
+  </Step>
+</Steps>
+
+## Relationship Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the relationship.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Relationship name, typically follows the pattern:
+  - `fk_{source_table}_{target_table}`
+  - `{source_table}_ibfk_1` (MySQL auto-generated)
+  
+  Example: `dept_emp_ibfk_1`
+</ParamField>
+
+<ParamField path="sourceTableId" type="string" required>
+  The ID of the table containing the foreign key.
+</ParamField>
+
+<ParamField path="targetTableId" type="string" required>
+  The ID of the table being referenced (usually contains the primary key).
+</ParamField>
+
+<ParamField path="sourceFieldId" type="string" required>
+  The field in the source table (foreign key field).
+</ParamField>
+
+<ParamField path="targetFieldId" type="string" required>
+  The field in the target table (primary key or unique field).
+</ParamField>
+
+<ParamField path="sourceCardinality" type="'one' | 'many'" required>
+  Cardinality on the source side of the relationship.
+</ParamField>
+
+<ParamField path="targetCardinality" type="'one' | 'many'" required>
+  Cardinality on the target side of the relationship.
+</ParamField>
+
+<ParamField path="sourceSchema" type="string">
+  Schema of the source table (for databases with schema support).
+</ParamField>
+
+<ParamField path="targetSchema" type="string">
+  Schema of the target table (for databases with schema support).
+</ParamField>
+
+## Editing Relationships
+
+### Quick Edit via Popover
+
+Click on any relationship line to open the edit popover:
+
+<Steps>
+  <Step title="Click Relationship">
+    Click on the relationship line connecting two tables.
+  </Step>
+  
+  <Step title="Edit Cardinality">
+    The popover shows buttons to quickly change between:
+    - **1:1** (One-to-One)
+    - **1:N** (One-to-Many)
+    
+    Click the desired type to update.
+  </Step>
+  
+  <Step title="Other Actions">
+    The popover also provides:
+    - **Switch** (⇄): Reverse the relationship direction
+    - **Details** (◉): Open full relationship details in sidebar
+    - **Delete** (🗑): Remove the relationship
+  </Step>
+</Steps>
+
+### Edit via Sidebar
+
+For detailed relationship configuration:
+
+<Steps>
+  <Step title="Open Sidebar">
+    Press `⌘B` (Mac) or `Ctrl+B` (Windows) to toggle the sidebar.
+  </Step>
+  
+  <Step title="Select Relationships Tab">
+    Click on the **Relationships** tab in the sidebar.
+  </Step>
+  
+  <Step title="Find Relationship">
+    Browse or search for the relationship you want to edit.
+  </Step>
+  
+  <Step title="Edit Properties">
+    Modify:
+    - Relationship name
+    - Source/target fields
+    - Cardinality
+    - On Delete/On Update actions (if supported)
+  </Step>
+</Steps>
+
+## Switching Relationship Direction
+
+You can reverse the source and target of a relationship:
+
+1. Click on the relationship line
+2. Click the **Switch** button (⇄) in the popover
+3. The source and target tables/fields are swapped
+
+<Warning>
+  Switching a relationship reverses which table contains the foreign key. Ensure this matches your actual database schema.
+</Warning>
+
+## Deleting Relationships
+
+To remove a relationship:
+
+<Tabs>
+  <Tab title="Via Popover">
+    1. Click on the relationship line
+    2. Click the delete button (trash icon) in the popover
+    3. Confirm deletion
+  </Tab>
+  
+  <Tab title="Via Sidebar">
+    1. Open the Relationships tab in sidebar
+    2. Find the relationship
+    3. Click the delete icon
+    4. Confirm deletion
+  </Tab>
+  
+  <Tab title="Via Table Deletion">
+    Deleting a table automatically deletes all its relationships.
+  </Tab>
+</Tabs>
+
+## Relationship Visualization
+
+### Visual Elements
+
+Relationships are displayed as connecting lines with visual indicators:
+
+<CardGroup cols={2}>
+  <Card title="Line Style" icon="minus">
+    - Solid lines for foreign key relationships
+    - Arrow heads indicate direction
+    - Hover to highlight
+  </Card>
+  
+  <Card title="Cardinality Markers" icon="circle-dot">
+    - Circle (◯) = "one"
+    - Crow's foot (⋮) = "many"
+    - Positioned at each end of the line
+  </Card>
+</CardGroup>
+
+### Connection Points
+
+Relationships connect at the specific fields involved:
+
+- The line extends from the foreign key field
+- To the referenced primary key field
+- Labels show field names on hover
+
+## Common Relationship Patterns
+
+### One-to-Many: Customer → Orders
+
+```sql
+CREATE TABLE customers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE orders (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    customer_id INT NOT NULL,
+    order_date DATE NOT NULL,
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+```
+
+<Steps>
+  <Step title="Create Tables">
+    Create both `customers` and `orders` tables.
+  </Step>
+  
+  <Step title="Add Foreign Key Field">
+    Add `customer_id` field to `orders` table.
+  </Step>
+  
+  <Step title="Create Relationship">
+    Connect `orders.customer_id` → `customers.id` with cardinality many-to-one.
+  </Step>
+</Steps>
+
+### One-to-One: User → Profile
+
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) UNIQUE NOT NULL
+);
+
+CREATE TABLE user_profiles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT UNIQUE NOT NULL,
+    bio TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+<Note>
+  For one-to-one relationships, add a UNIQUE constraint on the foreign key field.
+</Note>
+
+### Many-to-Many: Students ↔ Courses
+
+```sql
+CREATE TABLE students (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE courses (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE student_courses (
+    student_id INT NOT NULL,
+    course_id INT NOT NULL,
+    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (student_id, course_id),
+    FOREIGN KEY (student_id) REFERENCES students(id),
+    FOREIGN KEY (course_id) REFERENCES courses(id)
+);
+```
+
+<Steps>
+  <Step title="Create Entity Tables">
+    Create `students` and `courses` tables.
+  </Step>
+  
+  <Step title="Create Junction Table">
+    Create `student_courses` with foreign keys to both tables.
+  </Step>
+  
+  <Step title="Create Relationships">
+    Create two relationships:
+    - `student_courses.student_id` → `students.id` (many-to-one)
+    - `student_courses.course_id` → `courses.id` (many-to-one)
+  </Step>
+</Steps>
+
+### Self-Referencing: Employee → Manager
+
+```sql
+CREATE TABLE employees (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    manager_id INT,
+    FOREIGN KEY (manager_id) REFERENCES employees(id)
+);
+```
+
+<Info>
+  Self-referencing relationships point from a table back to itself. Useful for hierarchical data like org charts, category trees, etc.
+</Info>
+
+## Composite Foreign Keys
+
+For tables with composite primary keys:
+
+```sql
+CREATE TABLE order_items (
+    order_id INT,
+    item_id INT,
+    quantity INT NOT NULL,
+    PRIMARY KEY (order_id, item_id)
+);
+
+CREATE TABLE shipments (
+    id INT PRIMARY KEY,
+    order_id INT,
+    item_id INT,
+    FOREIGN KEY (order_id, item_id) REFERENCES order_items(order_id, item_id)
+);
+```
+
+<Warning>
+  ChartDB currently displays composite foreign keys as multiple individual relationships. When exporting to SQL, they are correctly combined into a single constraint.
+</Warning>
+
+## Cross-Schema Relationships
+
+For databases supporting schemas (PostgreSQL, SQL Server):
+
+```sql
+CREATE SCHEMA auth;
+CREATE SCHEMA app;
+
+CREATE TABLE auth.users (
+    id INT PRIMARY KEY
+);
+
+CREATE TABLE app.posts (
+    id INT PRIMARY KEY,
+    user_id INT,
+    FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+```
+
+Relationships can connect tables across different schemas. ChartDB tracks both:
+- `sourceSchema` and `sourceTableId`
+- `targetSchema` and `targetTableId`
+
+## Referential Actions
+
+While creating relationships, you can specify what happens on UPDATE and DELETE:
+
+<Accordion title="ON DELETE Actions">
+  - **CASCADE**: Delete related rows
+  - **SET NULL**: Set foreign key to NULL
+  - **SET DEFAULT**: Set to default value
+  - **RESTRICT**: Prevent deletion
+  - **NO ACTION**: Similar to RESTRICT
+</Accordion>
+
+<Accordion title="ON UPDATE Actions">
+  - **CASCADE**: Update related rows
+  - **SET NULL**: Set foreign key to NULL
+  - **SET DEFAULT**: Set to default value
+  - **RESTRICT**: Prevent update
+  - **NO ACTION**: Similar to RESTRICT
+</Accordion>
+
+<Note>
+  Referential action support varies by database. ChartDB exports the appropriate syntax for your selected database type.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Foreign Key Naming">
+    Use consistent naming conventions:
+    - `{referenced_table}_id` for the field name
+    - `fk_{source_table}_{target_table}` for constraint name
+    
+    Examples:
+    - Field: `customer_id`, Constraint: `fk_orders_customers`
+    - Field: `user_id`, Constraint: `fk_posts_users`
+  </Accordion>
+  
+  <Accordion title="Index Foreign Keys">
+    Always index foreign key fields for performance:
+    - Speeds up joins
+    - Required for some databases
+    - ChartDB exports appropriate indexes
+  </Accordion>
+  
+  <Accordion title="Choose Correct Cardinality">
+    Think carefully about relationship types:
+    - One-to-Many is most common
+    - One-to-One needs UNIQUE constraint on FK
+    - Many-to-Many requires junction table
+  </Accordion>
+  
+  <Accordion title="Document Relationships">
+    Add comments explaining:
+    - Why tables are related
+    - Business rules enforced
+    - Special cascade behaviors
+  </Accordion>
+  
+  <Accordion title="Avoid Circular Dependencies">
+    Be cautious of circular references:
+    - Can cause issues with data loading
+    - May need to temporarily disable constraints
+    - Document any circular dependencies clearly
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Relationship Won't Create">
+    **Common causes:**
+    - Data types don't match
+    - Target field is not a primary key or unique
+    - Schema mismatch
+    
+    **Solution:** Ensure field types and constraints match exactly.
+  </Accordion>
+  
+  <Accordion title="Relationship Line Not Visible">
+    **Possible reasons:**
+    - Tables are overlapping
+    - Canvas is zoomed too far out
+    - Relationship is filtered out
+    
+    **Solution:** Zoom in, reposition tables, or check filter settings.
+  </Accordion>
+  
+  <Accordion title="Can't Delete Relationship">
+    **Issue:** Diagram is in readonly mode.
+    
+    **Solution:** Ensure you have edit permissions and the diagram is not locked.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Editing Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Learn how to create and modify tables
+  </Card>
+  
+  <Card title="Using Areas" icon="layer-group" href="/guides/using-areas">
+    Group related tables visually
+  </Card>
+  
+  <Card title="Export Schema" icon="download" href="/features/export-options">
+    Export your schema to SQL, DBML, or images
+  </Card>
+  
+  <Card title="Keyboard Shortcuts" icon="keyboard" href="/guides/keyboard-shortcuts">
+    Speed up relationship management
+  </Card>
+</CardGroup>

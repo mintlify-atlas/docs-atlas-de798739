@@ -1,0 +1,594 @@
+---
+title: Adding Notes
+description: Document and annotate your database diagrams with notes in ChartDB
+icon: 'note-sticky'
+---
+
+## What are Notes?
+
+Notes are text annotations you can place anywhere on your diagram canvas. They help document design decisions, explain complex relationships, add TODOs, or provide context about your database schema.
+
+<Info>
+  Notes are visual elements that appear only in ChartDB. They are not included in SQL exports but can be included when exporting diagrams as images.
+</Info>
+
+## Creating Notes
+
+### Using the Context Menu
+
+<Steps>
+  <Step title="Right-click on Canvas">
+    Right-click on any empty space on the canvas where you want to add a note.
+  </Step>
+  
+  <Step title="Select 'New Note'">
+    Click **New Note** from the context menu.
+  </Step>
+  
+  <Step title="Enter Content">
+    A new note appears with default text. Click inside to start editing.
+  </Step>
+</Steps>
+
+<Tip>
+  Create notes near the tables or areas they describe. This creates clear visual associations between documentation and schema elements.
+</Tip>
+
+## Note Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the note.
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The text content of the note. Supports:
+  - Plain text
+  - Line breaks
+  - Basic formatting
+  
+  **Examples:**
+  ```
+  TODO: Add indexes to user_id columns
+  ```
+  
+  ```
+  IMPORTANT: This table uses soft deletes.
+  Check deleted_at before querying.
+  ```
+  
+  ```
+  Migration notes:
+  - Phase 1: Add columns (2024-01)
+  - Phase 2: Migrate data (2024-02)  
+  - Phase 3: Drop old columns (2024-03)
+  ```
+</ParamField>
+
+<ParamField path="x" type="number" required>
+  Horizontal position on the canvas (in pixels).
+</ParamField>
+
+<ParamField path="y" type="number" required>
+  Vertical position on the canvas (in pixels).
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Width of the note box (in pixels).
+  
+  Default: 200px
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Height of the note box (in pixels).
+  
+  Default: 150px
+</ParamField>
+
+<ParamField path="color" type="string" required>
+  Background color of the note.
+  
+  **Available colors:**
+  - `#ffe374` (Yellow) - Default, good for warnings/TODOs
+  - `#ff6b8a` (Pink) - Alerts or important information
+  - `#4dee8a` (Green) - Confirmations or completed items
+  - `#7175fa` (Blue) - General information
+  - `#42e0c0` (Teal) - Tips or suggestions
+  - `#b067e9` (Purple) - Documentation
+  - `#ff6363` (Red) - Critical warnings
+</ParamField>
+
+<ParamField path="order" type="number">
+  Z-index for layering. Higher numbers appear on top of lower numbers.
+  
+  Useful when notes overlap with other elements.
+</ParamField>
+
+## Editing Notes
+
+### Editing Content
+
+<Steps>
+  <Step title="Click on Note">
+    Click anywhere inside the note to select it.
+  </Step>
+  
+  <Step title="Enter Edit Mode">
+    Double-click or click again to enter text editing mode.
+  </Step>
+  
+  <Step title="Type Content">
+    Edit the note content:
+    - Type or paste text
+    - Press Enter for line breaks
+    - Click outside the note to save
+  </Step>
+</Steps>
+
+### Resizing Notes
+
+Resize notes to fit your content:
+
+<Steps>
+  <Step title="Select Note">
+    Click on the note to select it.
+  </Step>
+  
+  <Step title="Drag Resize Handle">
+    Drag the corners or edges to resize:
+    - Drag corners to resize width and height together
+    - Drag edges to resize in one direction
+  </Step>
+  
+  <Step title="Release">
+    Release the mouse when the note is the desired size.
+  </Step>
+</Steps>
+
+<Note>
+  Notes automatically wrap text, so make them wide enough to avoid excessive wrapping. Typical widths: 200-400px.
+</Note>
+
+### Moving Notes
+
+Reposition notes on the canvas:
+
+1. Click and hold on the note
+2. Drag to the desired position
+3. Release to place
+
+<Tip>
+  Position notes near the elements they describe:
+  - Next to tables they document
+  - Inside or near relevant areas
+  - Near relationships they explain
+  - At the top of the canvas for general information
+</Tip>
+
+### Changing Note Color
+
+<Steps>
+  <Step title="Select Note">
+    Click on the note to select it.
+  </Step>
+  
+  <Step title="Open Color Picker">
+    Click on the color indicator or open the note properties.
+  </Step>
+  
+  <Step title="Choose Color">
+    Select a color from the palette based on the note's purpose.
+  </Step>
+</Steps>
+
+## Deleting Notes
+
+To remove a note:
+
+<Tabs>
+  <Tab title="Context Menu">
+    1. Right-click on the note
+    2. Select **Delete Note**
+    3. Confirm deletion
+  </Tab>
+  
+  <Tab title="Keyboard">
+    1. Click to select the note
+    2. Press Delete or Backspace
+    3. Confirm deletion
+  </Tab>
+</Tabs>
+
+## Common Use Cases
+
+### Design Decisions
+
+Document why certain design choices were made:
+
+```text
+📌 Why separate tables for addresses?
+
+Users can have multiple addresses (shipping, billing),
+and addresses can be shared (business accounts).
+This normalization reduces data duplication.
+```
+
+### Migration Notes
+
+Track database migration plans and status:
+
+```text
+🚧 Migration Plan - User Profiles
+
+✅ Phase 1: Add new columns (completed)
+🔄 Phase 2: Backfill data (in progress)
+⏳ Phase 3: Remove old columns (pending)
+
+Deploy: v2.5.0
+```
+
+### Performance Warnings
+
+Highlight performance considerations:
+
+```text
+⚠️ PERFORMANCE NOTE
+
+This query requires a composite index:
+CREATE INDEX idx_user_created 
+ON orders (user_id, created_at);
+
+Current table size: 50M rows
+```
+
+### Business Rules
+
+Explain business logic enforced by the schema:
+
+```text
+💼 Order Status Flow
+
+pending → processing → shipped → delivered
+         ↓
+      cancelled (allowed from pending/processing only)
+
+Status transitions enforced by application layer.
+```
+
+### TODOs and Action Items
+
+```text
+TODO LIST:
+
+[ ] Add indexes to foreign keys
+[ ] Review and update column comments  
+[ ] Set up replication for analytics
+[x] Implement soft delete pattern
+```
+
+### Data Sensitivity Markers
+
+```text
+🔒 PII DATA - GDPR Compliance
+
+Tables containing personal data:
+- user_profiles (name, email, phone)
+- addresses (street, city, postal_code)
+- payment_methods (masked card numbers)
+
+Retention: 7 years after last activity
+Deletion: Anonymize on user request
+```
+
+### Reference Information
+
+```text
+📚 ENUM Values Reference
+
+user_status:
+- 'active': Regular active user
+- 'suspended': Temporarily disabled
+- 'deleted': Soft deleted (can be restored)
+- 'banned': Permanently disabled
+```
+
+### Relationship Explanations
+
+```text
+🔗 Many-to-Many Explained
+
+students ←→ courses
+
+Junction table: enrollments
+- Contains enrollment date
+- Stores grade information
+- Tracks completion status
+```
+
+## Note Organization Strategies
+
+### Color-Coded by Purpose
+
+Use consistent colors for different note types:
+
+<CardGroup cols={2}>
+  <Card title="Yellow" icon="sticky-note">
+    **TODOs & Reminders**
+    
+    Action items and pending tasks
+  </Card>
+  
+  <Card title="Red" icon="exclamation-triangle">
+    **Critical Warnings**
+    
+    Important alerts and risks
+  </Card>
+  
+  <Card title="Green" icon="check">
+    **Completed Items**
+    
+    Finished tasks and confirmations
+  </Card>
+  
+  <Card title="Blue" icon="info-circle">
+    **Documentation**
+    
+    General information and explanations
+  </Card>
+</CardGroup>
+
+### Hierarchical Positioning
+
+1. **Top of canvas**: General diagram information, legends, version info
+2. **Near areas**: Context for area groupings
+3. **Near tables**: Table-specific documentation
+4. **Near relationships**: Relationship explanations
+5. **Bottom of canvas**: References, change log
+
+### Note Templates
+
+Create reusable note templates for consistency:
+
+<Accordion title="Table Documentation Template">
+  ```text
+  📋 [TABLE_NAME]
+  
+  Purpose: [Brief description]
+  
+  Key Columns:
+  - [column]: [description]
+  - [column]: [description]
+  
+  Indexes: [index strategy]
+  
+  Notes: [additional context]
+  ```
+</Accordion>
+
+<Accordion title="Migration Template">
+  ```text
+  🔄 Migration: [NAME]
+  
+  Date: [YYYY-MM-DD]
+  Status: [pending|in-progress|completed]
+  
+  Steps:
+  1. [step]
+  2. [step]
+  
+  Rollback: [instructions]
+  ```
+</Accordion>
+
+<Accordion title="Performance Template">
+  ```text
+  ⚡ Performance Note
+  
+  Issue: [description]
+  
+  Recommendation:
+  [SQL or configuration change]
+  
+  Expected Impact: [metric improvement]
+  
+  Priority: [high|medium|low]
+  ```
+</Accordion>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Notes Concise">
+    - Use bullet points for lists
+    - Keep sentences short
+    - Focus on essential information
+    - Link to external docs for details
+    
+    **Good:**
+    ```
+    ⚠️ Soft delete pattern
+    Check deleted_at IS NULL in queries
+    ```
+    
+    **Too verbose:**
+    ```
+    This table implements a soft delete pattern where
+    records are not physically removed from the database
+    but instead marked with a timestamp in the deleted_at
+    column. When querying, always remember to add a WHERE
+    clause checking that deleted_at IS NULL unless you
+    specifically need to include deleted records...
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Visual Indicators">
+    Start notes with emojis or symbols for quick recognition:
+    - 📌 Pinned/important information
+    - ⚠️ Warnings
+    - 🚧 Work in progress
+    - ✅ Completed
+    - 📚 Reference
+    - 🔒 Security/privacy
+    - ⚡ Performance
+    - 🔗 Relationships
+    - 💼 Business rules
+  </Accordion>
+  
+  <Accordion title="Position Strategically">
+    - Don't block important diagram elements
+    - Group related notes together
+    - Use consistent positioning across similar diagrams
+    - Leave space for diagram growth
+  </Accordion>
+  
+  <Accordion title="Update Regularly">
+    - Remove outdated notes
+    - Mark completed TODOs
+    - Update migration statuses
+    - Archive old notes rather than delete (move to bottom)
+  </Accordion>
+  
+  <Accordion title="Consistent Formatting">
+    Establish team conventions:
+    - Date format: YYYY-MM-DD
+    - Status indicators: ✅❌⏳🔄
+    - Priority levels: 🔴 High, 🟡 Medium, 🟢 Low
+    - Note headers: Clear titles with emojis
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Techniques
+
+### Version Control for Diagrams
+
+Use notes to track diagram versions:
+
+```text
+📄 Diagram Changelog
+
+v3.0.0 (2024-03-01)
+- Added payment processing tables
+- Refactored user authentication
+
+v2.1.0 (2024-02-15)  
+- Added analytics schema
+- Performance indexes
+
+v2.0.0 (2024-01-20)
+- Major redesign for microservices
+```
+
+### Cross-Reference System
+
+Create a numbering system for notes:
+
+```text
+[1] User Management Area
+See note [4] for authentication flow
+
+[2] Order Processing
+Related: Note [3] payment gateway
+
+[3] Payment Gateway
+Depends on: Note [1] user system
+
+[4] Authentication Flow  
+Implements: OAuth 2.0 + JWT
+```
+
+### Decision Log
+
+Track architectural decisions:
+
+```text
+📋 ADR-003: UUID vs Auto-increment IDs
+
+Decision: Use UUIDs for distributed systems
+
+Reason:
+- Better for microservices
+- Avoid ID conflicts
+- Enable offline-first
+
+Trade-off: 16 bytes vs 4-8 bytes
+
+Date: 2024-02-15
+Status: Accepted
+```
+
+## Integration with Other Features
+
+### Notes + Areas
+
+Combine notes with areas for comprehensive documentation:
+
+- Place notes inside areas to document their purpose
+- Use notes to explain why tables are grouped
+- Add "legend" notes explaining area color coding
+
+### Notes + Templates
+
+When creating diagrams from templates:
+
+- Add notes explaining what you modified
+- Document why you chose this template
+- Note any template elements you removed
+
+### Notes + Export
+
+When exporting diagrams:
+
+- Image exports: Notes are included
+- SQL exports: Notes are NOT included (they're documentation only)
+- Consider adding key notes as SQL comments instead
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Note Text is Cut Off">
+    **Issue:** Text doesn't fit in note box.
+    
+    **Solution:** 
+    - Resize note to be larger
+    - Break long lines
+    - Use abbreviations
+    - Create multiple notes instead of one large note
+  </Accordion>
+  
+  <Accordion title="Can't Edit Note Content">
+    **Issue:** Note is in readonly mode.
+    
+    **Solution:** 
+    - Ensure diagram is editable
+    - Check if note is locked
+    - Try double-clicking to enter edit mode
+  </Accordion>
+  
+  <Accordion title="Note Disappeared">
+    **Issue:** Can't find a note after panning/zooming.
+    
+    **Solution:**
+    - Use "Fit to screen" (⌘0 / Ctrl+0)
+    - Check if note was accidentally deleted
+    - Look in unexpected canvas areas
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Using Areas" icon="layer-group" href="/guides/using-areas">
+    Combine notes with areas for organization
+  </Card>
+  
+  <Card title="Export Diagram" icon="download" href="/features/export-options">
+    Export diagrams with notes as images
+  </Card>
+  
+  <Card title="Keyboard Shortcuts" icon="keyboard" href="/guides/keyboard-shortcuts">
+    Learn shortcuts for faster editing
+  </Card>
+  
+  <Card title="Templates" icon="grid" href="/guides/templates">
+    See how notes are used in templates
+  </Card>
+</CardGroup>

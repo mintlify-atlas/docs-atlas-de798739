@@ -1,80 +1,323 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Start visualizing your database schema in minutes with ChartDB
 ---
 
-## Get started in three steps
+## Get started with ChartDB
 
-Get your documentation site running locally and make your first customization.
+ChartDB is a web-based database diagram editor that visualizes your database schema with a single query. No installations, no database passwords required.
 
-### Step 1: Set up your local environment
+<Info>
+  This guide uses the **cloud version** at [app.chartdb.io](https://app.chartdb.io). For self-hosting options, see the [Installation](/installation) guide.
+</Info>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Create your first diagram
+
+<Steps>
+  <Step title="Open ChartDB">
+    Navigate to [app.chartdb.io](https://app.chartdb.io) in your browser. No account or login required.
+  </Step>
+
+  <Step title="Choose your database type">
+    Select your database from the list:
+    - PostgreSQL (including Supabase, TimescaleDB)
+    - MySQL
+    - SQL Server
+    - MariaDB
+    - SQLite (including Cloudflare D1)
+    - ClickHouse
+    - CockroachDB
+    - Oracle
+  </Step>
+
+  <Step title="Run the Smart Query">
+    ChartDB provides a database-specific query that extracts your schema as JSON metadata. Copy the query and run it in your database client.
+
+    <Tabs>
+      <Tab title="PostgreSQL">
+        ```sql
+        SELECT json_build_object(
+          'tables', (
+            SELECT json_agg(json_build_object(
+              'schema', schemaname,
+              'table', tablename
+            ))
+            FROM pg_tables
+            WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+          ),
+          'columns', (
+            SELECT json_agg(json_build_object(
+              'schema', table_schema,
+              'table', table_name,
+              'column', column_name,
+              'type', data_type,
+              'nullable', is_nullable = 'YES',
+              'default', column_default
+            ))
+            FROM information_schema.columns
+            WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          ),
+          'pk_info', (
+            SELECT json_agg(json_build_object(
+              'schema', tc.table_schema,
+              'table', tc.table_name,
+              'constraint_name', tc.constraint_name,
+              'column', kcu.column_name
+            ))
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+              AND tc.table_schema NOT IN ('pg_catalog', 'information_schema')
+          ),
+          'fk_info', (
+            SELECT json_agg(json_build_object(
+              'schema', tc.table_schema,
+              'table', tc.table_name,
+              'constraint_name', tc.constraint_name,
+              'column', kcu.column_name,
+              'reference_schema', ccu.table_schema,
+              'reference_table', ccu.table_name,
+              'reference_column', ccu.column_name
+            ))
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage ccu
+              ON tc.constraint_name = ccu.constraint_name
+              AND tc.table_schema = ccu.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema NOT IN ('pg_catalog', 'information_schema')
+          ),
+          'indexes', (
+            SELECT json_agg(json_build_object(
+              'schema', schemaname,
+              'table', tablename,
+              'index_name', indexname,
+              'column', indexdef
+            ))
+            FROM pg_indexes
+            WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+          )
+        ) as metadata;
+        ```
+      </Tab>
+
+      <Tab title="MySQL">
+        ```sql
+        SELECT JSON_OBJECT(
+          'tables', (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT(
+              'schema', TABLE_SCHEMA,
+              'table', TABLE_NAME
+            ))
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+          ),
+          'columns', (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT(
+              'schema', TABLE_SCHEMA,
+              'table', TABLE_NAME,
+              'column', COLUMN_NAME,
+              'type', DATA_TYPE,
+              'nullable', IS_NULLABLE = 'YES',
+              'default', COLUMN_DEFAULT,
+              'extra', EXTRA
+            ))
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+          )
+        ) as metadata;
+        ```
+      </Tab>
+
+      <Tab title="SQLite">
+        For SQLite, use the file upload method or manually run:
+        
+        ```sql
+        SELECT name, sql FROM sqlite_master WHERE type='table';
+        ```
+        
+        Then format the output as JSON or use the DDL import method instead.
+      </Tab>
+    </Tabs>
+
+    <Note>
+      The Smart Query extracts metadata only—no actual data. Your database credentials are never sent to ChartDB servers.
+    </Note>
+  </Step>
+
+  <Step title="Paste the JSON result">
+    Copy the entire JSON output from your query results and paste it into the ChartDB import dialog.
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ChartDB will automatically:
+    - Create tables with all columns
+    - Draw relationships based on foreign keys
+    - Set up indexes and constraints
+    - Organize tables on the canvas
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Explore and edit">
+    Your database schema is now visualized! You can:
+    - **Drag tables** to rearrange the layout
+    - **Edit tables** by clicking on them
+    - **Add relationships** by dragging between tables
+    - **Create areas** to group related tables
+    - **Add notes** for documentation
+    - **Export** to SQL DDL, DBML, or PNG image
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+## What you can do next
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Edit Your Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Learn how to modify tables, add fields, and manage constraints
+  </Card>
+  
+  <Card title="Manage Relationships" icon="diagram-project" href="/guides/managing-relationships">
+    Create and edit foreign key relationships between tables
+  </Card>
+  
+  <Card title="Export Options" icon="file-export" href="/features/export-options">
+    Export your diagram as SQL DDL, DBML, or share as an image
+  </Card>
+  
+  <Card title="Use Templates" icon="layer-group" href="/guides/templates">
+    Start from pre-built templates for common database patterns
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Alternative import methods
+
+If the Smart Query doesn't work for your database, try these alternatives:
+
+<Tabs>
+  <Tab title="DDL Scripts">
+    Import from SQL DDL scripts:
+    
+    ```sql
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE orders (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      total DECIMAL(10, 2),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    ```
+    
+    [Learn more about DDL import](/features/ddl-import)
+  </Tab>
+
+  <Tab title="DBML">
+    Import from DBML (Database Markup Language):
+    
+    ```dbml
+    Table users {
+      id integer [primary key]
+      email varchar(255) [unique, not null]
+      created_at timestamp [default: `now()`]
+    }
+
+    Table orders {
+      id integer [primary key]
+      user_id integer [ref: > users.id]
+      total decimal(10,2)
+      created_at timestamp [default: `now()`]
+    }
+    ```
+    
+    [Learn more about DBML import](/features/dbml-import)
+  </Tab>
+
+  <Tab title="Start from Scratch">
+    Create a new diagram and add tables manually:
+    
+    1. Click **New Diagram**
+    2. Select your database type
+    3. Click **Add Table** on the canvas
+    4. Define fields, indexes, and constraints
+    5. Draw relationships between tables
+    
+    [Learn more about creating diagrams](/guides/creating-diagrams)
+  </Tab>
+</Tabs>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Local Storage" icon="hard-drive">
+    All diagrams are saved locally in your browser. No account required, your data never leaves your device.
+  </Card>
+  
+  <Card title="AI-Powered Migration" icon="wand-magic-sparkles">
+    Use AI to convert DDL scripts between different database dialects (PostgreSQL ↔ MySQL ↔ SQL Server).
+  </Card>
+  
+  <Card title="Keyboard Shortcuts" icon="keyboard">
+    Boost productivity with shortcuts for undo/redo, save, zoom, and more.
+  </Card>
+  
+  <Card title="Shareable URLs" icon="link">
+    Share your diagrams with team members via URL or export as images for documentation.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Query returns error or permission denied">
+    Some databases require specific permissions to query metadata views. Try:
+    
+    - **PostgreSQL**: Grant access to `information_schema` and `pg_catalog`
+    - **MySQL**: Ensure user has `SELECT` privilege on `information_schema`
+    - **SQL Server**: Requires `VIEW DEFINITION` permission
+    
+    If permissions are restricted, use the **DDL import** method instead.
+  </Accordion>
+
+  <Accordion title="JSON output is too large">
+    For databases with many tables (500+), the JSON metadata can be very large. Try:
+    
+    - Filter by schema: Modify the query to exclude schemas you don't need
+    - Import specific tables: Use the table selection feature in ChartDB
+    - Use DDL import: Selectively import only the tables you want to visualize
+  </Accordion>
+
+  <Accordion title="Relationships are missing">
+    If foreign key relationships don't appear:
+    
+    - Verify foreign keys exist in your database (run `\d table_name` in PostgreSQL)
+    - Check that the Smart Query includes the `fk_info` section
+    - For SQLite: Foreign keys must be enabled with `PRAGMA foreign_keys = ON`
+    - Manually create relationships in ChartDB if needed
+  </Accordion>
+
+  <Accordion title="Can't see my tables">
+    If tables don't appear after import:
+    
+    - Check the query filtered out system schemas (pg_catalog, information_schema, etc.)
+    - Verify tables exist in your database: `SELECT * FROM information_schema.tables`
+    - Try the **DDL import** method as an alternative
+    - Ensure JSON output is valid and complete
+  </Accordion>
+</AccordionGroup>
+
+## Need help?
+
+<CardGroup cols={2}>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/QeFwyWSKwC">
+    Get help from the ChartDB community
+  </Card>
+  
+  <Card title="GitHub Issues" icon="github" href="https://github.com/chartdb/chartdb/issues">
+    Report bugs or request features
+  </Card>
+</CardGroup>

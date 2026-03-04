@@ -1,0 +1,556 @@
+---
+title: Using Areas
+description: Organize and group related tables with areas in ChartDB
+icon: 'layer-group'
+---
+
+## What are Areas?
+
+Areas are rectangular regions on the canvas that help you visually group related tables together. They act as containers that provide visual organization and structure to your database diagrams.
+
+<Info>
+  Areas are purely visual organizational tools—they don't affect the actual database schema or SQL exports. However, they make complex diagrams much easier to understand.
+</Info>
+
+## Creating Areas
+
+### Using the Context Menu
+
+<Steps>
+  <Step title="Right-click on Canvas">
+    Right-click on any empty space on the canvas where you want to create the area.
+  </Step>
+  
+  <Step title="Select 'New Area'">
+    Click **New Area** from the context menu.
+  </Step>
+  
+  <Step title="Position and Size">
+    A new area is created at the clicked position with default dimensions:
+    - Width: 800px
+    - Height: 600px
+  </Step>
+</Steps>
+
+<Tip>
+  Create areas before adding tables to them, or create an area around existing tables and they'll automatically be associated with it.
+</Tip>
+
+## Area Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the area.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The area name, displayed at the top of the area.
+  
+  **Examples:**
+  - "User Management"
+  - "E-commerce"
+  - "Authentication & Authorization"
+  - "Reporting Tables"
+</ParamField>
+
+<ParamField path="x" type="number" required>
+  Horizontal position on the canvas.
+</ParamField>
+
+<ParamField path="y" type="number" required>
+  Vertical position on the canvas.
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Width of the area in pixels.
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Height of the area in pixels.
+</ParamField>
+
+<ParamField path="color" type="string" required>
+  Background color of the area. Choose colors that provide good contrast with table colors.
+  
+  **Available colors:**
+  - `#b067e9` (Purple)
+  - `#ff6b8a` (Pink)
+  - `#4dee8a` (Green)
+  - `#ffe374` (Yellow)
+  - `#7175fa` (Blue)
+  - `#42e0c0` (Teal)
+  - `#ff6363` (Red)
+  - `#8a61f5` (Violet)
+</ParamField>
+
+<ParamField path="order" type="number">
+  Z-index for layering areas. Higher numbers appear on top.
+</ParamField>
+
+## Editing Areas
+
+### Renaming an Area
+
+<Steps>
+  <Step title="Double-click Area Header">
+    Double-click on the area name at the top of the area.
+  </Step>
+  
+  <Step title="Enter New Name">
+    Type the new name in the input field that appears.
+  </Step>
+  
+  <Step title="Save">
+    Press Enter or click outside the input to save.
+  </Step>
+</Steps>
+
+Alternatively:
+1. Right-click on the area
+2. Select **Edit Area Name**
+3. Enter the new name
+
+### Resizing an Area
+
+Areas can be resized by dragging their edges or corners:
+
+<Steps>
+  <Step title="Hover Over Edge">
+    Move your cursor to any edge or corner of the area.
+    
+    The cursor will change to a resize indicator.
+  </Step>
+  
+  <Step title="Click and Drag">
+    Click and drag to resize:
+    - Drag edges to resize in one direction
+    - Drag corners to resize in two directions simultaneously
+  </Step>
+  
+  <Step title="Release">
+    Release the mouse button when the area is the desired size.
+  </Step>
+</Steps>
+
+<Note>
+  Tables inside the area are not automatically repositioned when you resize. You may need to rearrange tables after resizing an area.
+</Note>
+
+### Moving an Area
+
+To reposition an area:
+
+<Steps>
+  <Step title="Click Area Header">
+    Click on the area's header (the bar with the name).
+  </Step>
+  
+  <Step title="Drag">
+    Drag the area to the desired position.
+  </Step>
+  
+  <Step title="Release">
+    Release to place the area.
+  </Step>
+</Steps>
+
+<Warning>
+  When moving an area, tables inside it move with it. This maintains the area-table relationship.
+</Warning>
+
+### Changing Area Color
+
+<Steps>
+  <Step title="Select Area">
+    Click on the area to select it.
+  </Step>
+  
+  <Step title="Open Color Picker">
+    Click on the color indicator or open the area properties panel.
+  </Step>
+  
+  <Step title="Choose Color">
+    Select a new color from the available palette.
+  </Step>
+</Steps>
+
+## Managing Tables in Areas
+
+### Adding Tables to an Area
+
+There are two ways to associate tables with an area:
+
+<Tabs>
+  <Tab title="Automatic Assignment">
+    When you create or move a table so that it's visually inside an area's boundaries:
+    
+    1. The table's `parentAreaId` is automatically set
+    2. The table becomes associated with that area
+    3. Moving the area will move the table
+    
+    ChartDB uses geometric containment to detect this:
+    ```typescript
+    // A table is inside an area if all four corners are within bounds
+    const isInside = 
+      table.x >= area.x + padding &&
+      table.x + tableWidth <= area.x + area.width - padding &&
+      table.y >= area.y + padding &&
+      table.y + tableHeight <= area.y + area.height - padding;
+    ```
+  </Tab>
+  
+  <Tab title="Manual Assignment">
+    You can also manually drag tables into an area:
+    
+    1. Click and drag a table
+    2. Position it inside the area boundaries
+    3. Release the mouse button
+    4. The table is now part of that area
+  </Tab>
+</Tabs>
+
+### Removing Tables from an Area
+
+To remove a table from an area:
+
+1. Drag the table outside the area boundaries
+2. The `parentAreaId` is set to `null`
+3. The table is no longer associated with any area
+
+<Info>
+  When a table is inside an area, it maintains a 20px padding from the area edges to ensure clear visual separation.
+</Info>
+
+## Area Context Menu
+
+Right-click on an area to access:
+
+<Steps>
+  <Step title="Edit Area Name">
+    Opens an input to rename the area.
+  </Step>
+  
+  <Step title="Delete Area">
+    Removes the area from the canvas.
+    
+    **Important:** Tables inside the area are NOT deleted—only the area container is removed.
+  </Step>
+</Steps>
+
+## Deleting Areas
+
+<Warning>
+  Deleting an area does not delete the tables inside it. Tables will simply no longer be associated with any area.
+</Warning>
+
+To delete an area:
+
+<Tabs>
+  <Tab title="Context Menu">
+    1. Right-click on the area
+    2. Select **Delete Area**
+    3. Confirm the deletion
+  </Tab>
+  
+  <Tab title="Keyboard">
+    1. Select the area
+    2. Press the Delete or Backspace key
+    3. Confirm the deletion
+  </Tab>
+</Tabs>
+
+## Area Layout and Positioning
+
+### Auto-Layout for Areas
+
+When tables are repositioned using auto-layout:
+
+1. Tables are grouped by their `parentAreaId`
+2. Each area's tables are laid out within the area boundaries
+3. Tables outside areas are positioned separately
+4. Area overlap is avoided
+
+### Overlapping Areas
+
+Areas can overlap, and the `order` property determines layering:
+
+- Higher `order` values appear on top
+- Tables can only belong to one area at a time
+- The topmost area at a position gets the table
+
+<Tip>
+  Use the `order` property to create visual hierarchy. For example, set background areas to a lower order and detail areas to a higher order.
+</Tip>
+
+## Common Use Cases
+
+### Organizing by Domain
+
+Group tables by business domain or bounded context:
+
+<CodeGroup>
+```text Authentication & Authorization
+- users
+- roles
+- permissions
+- user_roles
+- role_permissions
+```
+
+```text E-commerce
+- products
+- categories
+- orders
+- order_items
+- shopping_carts
+```
+
+```text Content Management
+- posts
+- comments
+- tags
+- post_tags
+- media
+```
+</CodeGroup>
+
+### Organizing by Schema
+
+For databases with multiple schemas, create areas for each schema:
+
+```text Area: "public" schema
+- customers
+- orders
+- products
+
+Area: "auth" schema  
+- users
+- sessions
+- oauth_tokens
+
+Area: "analytics" schema
+- events
+- metrics
+- reports
+```
+
+### Organizing by Entity Lifecycle
+
+```text Area: "Core Entities"
+- users
+- accounts
+- organizations
+
+Area: "Transaction Tables"
+- orders
+- payments
+- invoices
+
+Area: "Audit & Logging"
+- audit_logs
+- activity_logs
+- change_history
+```
+
+### Organizing by Data Sensitivity
+
+```text Area: "PII Data" (Red)
+- user_profiles
+- addresses
+- payment_methods
+
+Area: "Public Data" (Green)
+- products
+- categories
+- blog_posts
+
+Area: "Internal Data" (Yellow)
+- analytics
+- metrics
+- system_logs
+```
+
+## Visual Design Tips
+
+<AccordionGroup>
+  <Accordion title="Color Coding">
+    Use consistent colors to indicate purpose:
+    - Red for critical/sensitive data
+    - Green for public/safe data
+    - Blue for core business entities
+    - Yellow for auxiliary/support tables
+    - Purple for authentication/security
+  </Accordion>
+  
+  <Accordion title="Size Appropriately">
+    - Make areas large enough to contain tables with padding
+    - Leave room for growth (additional tables)
+    - Avoid making areas too large (wastes canvas space)
+    - Typical size: 800-1200px wide, 600-1000px tall
+  </Accordion>
+  
+  <Accordion title="Naming Conventions">
+    - Use clear, descriptive names
+    - Use title case: "User Management"
+    - Include context: "Orders & Payments"
+    - Avoid abbreviations unless universally understood
+  </Accordion>
+  
+  <Accordion title="Logical Grouping">
+    Group tables that:
+    - Share a common purpose
+    - Are frequently queried together
+    - Belong to the same microservice
+    - Represent a bounded context
+    - Have similar access patterns
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Techniques
+
+### Nested Conceptual Grouping
+
+While ChartDB doesn't support nested areas, you can simulate hierarchy with naming:
+
+```text
+Area: "E-commerce"
+- products, categories, inventory
+
+Area: "E-commerce → Orders"
+- orders, order_items, shipments
+
+Area: "E-commerce → Payments"
+- payments, refunds, payment_methods
+```
+
+### Color-Coded Microservices
+
+For microservice architectures, use areas to represent service boundaries:
+
+```text
+Area: "User Service" (Blue)
+- users, profiles, preferences
+
+Area: "Order Service" (Green)
+- orders, order_items
+
+Area: "Payment Service" (Purple)
+- payments, transactions
+
+Area: "Notification Service" (Orange)
+- notifications, templates
+```
+
+### Migration Planning
+
+Use areas to plan database migrations:
+
+```text
+Area: "To Migrate" (Red)
+- legacy_users
+- old_orders
+
+Area: "New Schema" (Green)
+- users_v2
+- orders_v2
+
+Area: "Shared/Bridge" (Yellow)
+- migration_mapping
+- sync_status
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Create Areas First">
+    When starting a new diagram, create your areas before adding tables. This helps you think about organization from the beginning.
+  </Accordion>
+  
+  <Accordion title="Maintain Clear Boundaries">
+    Avoid having tables that straddle area boundaries. Each table should clearly belong to one area or none.
+  </Accordion>
+  
+  <Accordion title="Document Area Purpose">
+    In complex diagrams, consider adding a note near each area explaining its purpose and what types of tables it contains.
+  </Accordion>
+  
+  <Accordion title="Review and Refactor">
+    As your diagram grows:
+    - Periodically review area organization
+    - Split large areas into smaller, focused ones
+    - Merge small areas that don't add value
+    - Update names to reflect current purpose
+  </Accordion>
+  
+  <Accordion title="Consistent Sizing">
+    Try to keep areas of similar importance at similar sizes. This creates visual balance and makes the diagram easier to scan.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Table Won't Stay in Area">
+    **Issue:** Table moves outside area when diagram is saved/reloaded.
+    
+    **Cause:** Table position may be at the edge of the area boundary.
+    
+    **Solution:** Ensure table is fully inside area with padding. Reposition table more centrally within the area.
+  </Accordion>
+  
+  <Accordion title="Can't Resize Area">
+    **Issue:** Resize handles not appearing or not working.
+    
+    **Cause:** May be in readonly mode or area is selected incorrectly.
+    
+    **Solution:** Ensure diagram is editable. Click directly on area edge or corner.
+  </Accordion>
+  
+  <Accordion title="Areas Overlapping Unintentionally">
+    **Issue:** Areas are layered in unexpected ways.
+    
+    **Cause:** The `order` property determines z-index.
+    
+    **Solution:** Adjust the order property to control which area appears on top.
+  </Accordion>
+</AccordionGroup>
+
+## Examples from Templates
+
+Here are real examples of how areas are used in ChartDB templates:
+
+### Employee Database
+
+No areas used—small, focused schema where all tables are closely related.
+
+### Pokemon Database  
+
+Uses color-coded tables without areas—tables are distinguished by color alone:
+- Yellow: Type-related tables
+- Blue: Move-related tables
+- Purple: Pokemon core tables
+- Pink: Ability-related tables
+- Teal: Habitat and evolution tables
+
+<Tip>
+  For smaller diagrams (under 10 tables), you may not need areas at all. Table colors and positioning may be sufficient for organization.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Adding Notes" icon="note-sticky" href="/guides/adding-notes">
+    Document your schema with notes
+  </Card>
+  
+  <Card title="Editing Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Learn how to create and modify tables
+  </Card>
+  
+  <Card title="Managing Relationships" icon="link" href="/guides/managing-relationships">
+    Connect tables with relationships
+  </Card>
+  
+  <Card title="Export Diagram" icon="download" href="/features/export-options">
+    Export your organized diagram
+  </Card>
+</CardGroup>

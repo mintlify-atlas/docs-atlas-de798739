@@ -1,0 +1,301 @@
+---
+title: 'Docker Deployment'
+description: 'Deploy ChartDB using Docker for a containerized, production-ready setup'
+icon: 'docker'
+---
+
+ChartDB provides official Docker images for easy deployment. You can pull pre-built images from GitHub Container Registry or build your own custom images.
+
+## Quick Start
+
+### Using Pre-built Image
+
+Pull and run the latest ChartDB image from GitHub Container Registry:
+
+```bash
+docker run -p 8080:80 ghcr.io/chartdb/chartdb:latest
+```
+
+Then open your browser and navigate to `http://localhost:8080`.
+
+### With AI Capabilities
+
+To enable AI features, provide your OpenAI API key:
+
+```bash
+docker run -e OPENAI_API_KEY=sk-your-api-key-here -p 8080:80 ghcr.io/chartdb/chartdb:latest
+```
+
+<Note>
+Replace `sk-your-api-key-here` with your actual OpenAI API key. AI features include DDL script generation for database migrations and other intelligent operations.
+</Note>
+
+## Building Custom Images
+
+### Basic Build
+
+Build ChartDB from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/chartdb/chartdb.git
+cd chartdb
+
+# Build the Docker image
+docker build -t chartdb .
+
+# Run the container
+docker run -p 8080:80 chartdb
+```
+
+### Build with AI Support
+
+Build with OpenAI API key baked into the image:
+
+```bash
+docker build \
+  --build-arg VITE_OPENAI_API_KEY=sk-your-api-key-here \
+  -t chartdb .
+
+docker run -p 8080:80 chartdb
+```
+
+<Warning>
+Baking API keys into the image at build time is convenient but less secure. For production deployments, use runtime environment variables instead.
+</Warning>
+
+### Build with Custom Inference Server
+
+ChartDB supports custom LLM inference servers compatible with the OpenAI API format (like vLLM, LocalAI, or Ollama):
+
+```bash
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -t chartdb .
+
+docker run \
+  -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 chartdb
+```
+
+<Note>
+You must configure **either** Option 1 (OpenAI API key) **OR** Option 2 (Custom endpoint and model name) for AI capabilities to work. Do not mix the two options.
+</Note>
+
+### Example: Local vLLM Server
+
+Here's a complete example using a local vLLM server:
+
+```bash
+# Build with vLLM configuration
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -t chartdb-vllm .
+
+# Run with vLLM configuration
+docker run \
+  -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 chartdb-vllm
+```
+
+## Advanced Configuration
+
+### Custom Port Mapping
+
+By default, ChartDB listens on port 80 inside the container. Map it to any port on your host:
+
+```bash
+# Run on port 3000
+docker run -p 3000:80 ghcr.io/chartdb/chartdb:latest
+
+# Run on port 443 for HTTPS (requires reverse proxy)
+docker run -p 443:80 ghcr.io/chartdb/chartdb:latest
+```
+
+### Multiple Build Arguments
+
+Combine multiple configuration options:
+
+```bash
+docker build \
+  --build-arg VITE_OPENAI_API_KEY=sk-your-api-key-here \
+  --build-arg VITE_HIDE_CHARTDB_CLOUD=true \
+  --build-arg VITE_DISABLE_ANALYTICS=true \
+  -t chartdb-custom .
+```
+
+### Runtime Environment Variables
+
+Pass all environment variables at runtime:
+
+```bash
+docker run \
+  -e OPENAI_API_KEY=sk-your-api-key-here \
+  -e HIDE_CHARTDB_CLOUD=true \
+  -e DISABLE_ANALYTICS=true \
+  -p 8080:80 ghcr.io/chartdb/chartdb:latest
+```
+
+## Docker Architecture
+
+ChartDB uses a multi-stage Docker build:
+
+<Steps>
+  <Step title="Build Stage">
+    Uses `node:24-alpine` to build the Vite application with all dependencies and environment variables
+  </Step>
+  <Step title="Production Stage">
+    Uses `nginx:stable-alpine` to serve the built static files with minimal overhead
+  </Step>
+  <Step title="Runtime Configuration">
+    An entrypoint script (`entrypoint.sh`) dynamically injects environment variables into the Nginx configuration
+  </Step>
+</Steps>
+
+This architecture provides:
+- **Small image size**: Only production files are included
+- **Fast startup**: Nginx serves pre-built static assets
+- **Dynamic configuration**: Environment variables can be changed without rebuilding
+- **Production-ready**: Optimized for performance and security
+
+## Environment Variables
+
+The following environment variables can be set at both build time (with `--build-arg`) and runtime (with `-e`):
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OPENAI_API_KEY` | OpenAI API key for AI features | `sk-proj-...` |
+| `OPENAI_API_ENDPOINT` | Custom LLM endpoint URL | `http://localhost:8000/v1` |
+| `LLM_MODEL_NAME` | Custom LLM model name | `Qwen/Qwen2.5-32B-Instruct-AWQ` |
+| `HIDE_CHARTDB_CLOUD` | Hide ChartDB Cloud references | `true` |
+| `DISABLE_ANALYTICS` | Disable Fathom Analytics | `true` |
+
+<Info>
+Build-time variables are prefixed with `VITE_` (e.g., `VITE_OPENAI_API_KEY`), while runtime variables use the same name without the prefix.
+</Info>
+
+## Docker Compose
+
+For easier management, use Docker Compose:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  chartdb:
+    image: ghcr.io/chartdb/chartdb:latest
+    ports:
+      - "8080:80"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HIDE_CHARTDB_CLOUD=true
+      - DISABLE_ANALYTICS=true
+    restart: unless-stopped
+```
+
+Run with:
+
+```bash
+# Set your API key
+export OPENAI_API_KEY=sk-your-api-key-here
+
+# Start ChartDB
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop ChartDB
+docker-compose down
+```
+
+## Updating
+
+### Pull Latest Image
+
+```bash
+docker pull ghcr.io/chartdb/chartdb:latest
+docker stop chartdb-container
+docker rm chartdb-container
+docker run -d --name chartdb-container -p 8080:80 ghcr.io/chartdb/chartdb:latest
+```
+
+### With Docker Compose
+
+```bash
+docker-compose pull
+docker-compose up -d
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Container starts but page doesn't load">
+    Check if port 8080 is already in use:
+    
+    ```bash
+    # Check port usage
+    lsof -i :8080
+    
+    # Use a different port
+    docker run -p 8081:80 ghcr.io/chartdb/chartdb:latest
+    ```
+  </Accordion>
+
+  <Accordion title="AI features not working">
+    Verify your environment variables:
+    
+    ```bash
+    # Check container environment
+    docker exec <container-id> env | grep -E 'OPENAI|LLM'
+    
+    # Check container logs
+    docker logs <container-id>
+    ```
+    
+    Ensure you've configured **either** `OPENAI_API_KEY` **or** both `OPENAI_API_ENDPOINT` and `LLM_MODEL_NAME`.
+  </Accordion>
+
+  <Accordion title="Cannot connect to custom inference server">
+    If your inference server is running on `localhost`, use Docker networking:
+    
+    ```bash
+    # For Linux
+    docker run --network host \
+      -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+      -e LLM_MODEL_NAME=your-model \
+      ghcr.io/chartdb/chartdb:latest
+    
+    # For Mac/Windows, use host.docker.internal
+    docker run \
+      -e OPENAI_API_ENDPOINT=http://host.docker.internal:8000/v1 \
+      -e LLM_MODEL_NAME=your-model \
+      -p 8080:80 \
+      ghcr.io/chartdb/chartdb:latest
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied when building">
+    Ensure the entrypoint script has execute permissions:
+    
+    ```bash
+    chmod +x entrypoint.sh
+    docker build -t chartdb .
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    Learn about all available configuration options
+  </Card>
+  <Card title="AI Setup" icon="brain" href="/self-hosting/ai-setup">
+    Configure AI features and custom LLM providers
+  </Card>
+</CardGroup>

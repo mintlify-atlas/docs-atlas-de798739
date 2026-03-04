@@ -1,0 +1,312 @@
+---
+title: Creating Diagrams
+description: Learn how to create and set up database diagrams in ChartDB
+icon: 'plus-circle'
+---
+
+## Getting Started with Diagrams
+
+ChartDB provides multiple ways to create database diagrams. Whether you're starting from scratch, using a template, or importing an existing schema, ChartDB makes it easy to visualize your database structure.
+
+## Creating a New Diagram
+
+### Starting from Scratch
+
+To create a blank diagram:
+
+<Steps>
+  <Step title="Select Database Type">
+    Choose your database type (MySQL, PostgreSQL, SQLite, SQL Server, MariaDB, etc.) when creating a new diagram.
+  </Step>
+  
+  <Step title="Create Your First Table">
+    Right-click on the canvas and select **New Table** from the context menu, or use the keyboard shortcut:
+    - **macOS**: `⌘ + Click`
+    - **Windows/Linux**: `Ctrl + Click`
+  </Step>
+  
+  <Step title="Name Your Diagram">
+    Give your diagram a meaningful name to help organize your work.
+  </Step>
+</Steps>
+
+<Note>
+  ChartDB automatically saves your diagram as you work, so you don't have to worry about losing your progress.
+</Note>
+
+## Using Templates
+
+ChartDB provides over 40 pre-built database templates to help you get started quickly. These templates are based on real-world applications and popular frameworks.
+
+### Available Template Categories
+
+<CardGroup cols={2}>
+  <Card title="Framework Templates" icon="code">
+    - Laravel (Authentication, Permissions, Spark)
+    - Django (Core, Axes)
+    - Adonis ACL
+    - Rails (Devise, Doorkeeper, Flipper)
+  </Card>
+  
+  <Card title="Application Templates" icon="app-window">
+    - WordPress
+    - Flarum
+    - BookStack
+    - Monica (Personal CRM)
+    - Koel (Music Streaming)
+  </Card>
+  
+  <Card title="Domain Templates" icon="database">
+    - Employee Management
+    - E-commerce (Sylius)
+    - Ticketing (Ticketit)
+    - Accounting (Akaunting)
+  </Card>
+  
+  <Card title="Example Apps" icon="sparkles">
+    - Twitter Clone
+    - Airbnb Clone
+    - Hacker News
+    - Pokemon Database
+  </Card>
+</CardGroup>
+
+### Using a Template
+
+<Steps>
+  <Step title="Browse Templates">
+    From the home screen or new diagram dialog, browse through the available templates.
+  </Step>
+  
+  <Step title="Select Template">
+    Click on a template to preview its structure. Each template shows:
+    - Number of tables
+    - Database type
+    - Relationships
+    - Description and source URL (if available)
+  </Step>
+  
+  <Step title="Create from Template">
+    Click **Use Template** to create a new diagram based on the selected template. You can then customize it to fit your needs.
+  </Step>
+</Steps>
+
+<Tip>
+  Templates are fully editable. Use them as starting points and modify them to match your specific requirements.
+</Tip>
+
+## Importing Existing Schemas
+
+You can import your existing database schema into ChartDB using several methods:
+
+### Import from SQL DDL
+
+Import your database schema from SQL Data Definition Language statements:
+
+```sql
+CREATE TABLE employees (
+    emp_no INT PRIMARY KEY,
+    birth_date DATE NOT NULL,
+    first_name VARCHAR(14) NOT NULL,
+    last_name VARCHAR(16) NOT NULL,
+    gender ENUM('M', 'F') NOT NULL,
+    hire_date DATE NOT NULL
+);
+
+CREATE TABLE departments (
+    dept_no CHAR(4) PRIMARY KEY,
+    dept_name VARCHAR(40) UNIQUE NOT NULL
+);
+```
+
+<Steps>
+  <Step title="Access Import">
+    Right-click on the canvas and select **Import SQL/DBML**, or use the import button in the toolbar.
+  </Step>
+  
+  <Step title="Paste SQL">
+    Paste your SQL DDL statements into the import dialog.
+  </Step>
+  
+  <Step title="Import">
+    Click **Import** to create tables, fields, and relationships from your SQL schema.
+  </Step>
+</Steps>
+
+### Import from DBML
+
+DBML (Database Markup Language) is a simple, readable DSL for defining database schemas:
+
+```dbml
+Table employees {
+  emp_no int [pk]
+  birth_date date [not null]
+  first_name varchar(14) [not null]
+  last_name varchar(16) [not null]
+  gender enum('M', 'F') [not null]
+  hire_date date [not null]
+}
+
+Table departments {
+  dept_no char(4) [pk]
+  dept_name varchar(40) [unique, not null]
+}
+
+Ref: dept_emp.emp_no > employees.emp_no
+Ref: dept_emp.dept_no > departments.dept_no
+```
+
+<Warning>
+  When importing, ensure your SQL dialect matches the selected database type for accurate field type mapping.
+</Warning>
+
+### Import from Database Connection
+
+Connect directly to your database to import the live schema:
+
+<Info>
+  Database connection import supports PostgreSQL, MySQL, MariaDB, and SQL Server.
+</Info>
+
+## Diagram Configuration
+
+### Database Type Settings
+
+Each diagram is tied to a specific database type, which affects:
+
+- Available data types
+- SQL syntax for exports
+- Field attributes and constraints
+- Default schema naming
+
+**Supported Database Types:**
+- PostgreSQL
+- MySQL
+- MariaDB
+- SQL Server
+- SQLite
+- Generic SQL
+
+### Database Edition
+
+Some database types support multiple editions with different capabilities:
+
+<Accordion title="PostgreSQL Editions">
+  - Standard PostgreSQL
+  - PostgreSQL with specific extensions
+</Accordion>
+
+<Accordion title="SQL Server Editions">
+  - SQL Server Express
+  - SQL Server Standard
+  - SQL Server Enterprise
+</Accordion>
+
+## Diagram Views
+
+ChartDB supports both tables and database views:
+
+### Creating Views
+
+Database views can be created alongside regular tables:
+
+<Steps>
+  <Step title="Create View">
+    Right-click on the canvas and select **New View**.
+  </Step>
+  
+  <Step title="Define View">
+    Add fields to your view. Views are displayed with a different color (gray) to distinguish them from tables.
+  </Step>
+</Steps>
+
+<Note>
+  Views are marked with the `isView` property and can optionally be marked as `isMaterializedView` for databases that support materialized views.
+</Note>
+
+## Canvas Controls
+
+### Navigation
+
+- **Pan**: Click and drag on empty canvas space
+- **Zoom**: Use mouse wheel or pinch gesture
+- **Fit to Screen**: Press `⌘0` (Mac) or `Ctrl+0` (Windows) to view all elements
+
+### Canvas Context Menu
+
+Right-click on the canvas to access:
+
+- Create new table
+- Create new view (if enabled)
+- Create new relationship
+- Create new area (for grouping)
+- Create new note
+- Import SQL/DBML
+
+## Schema Organization
+
+For databases that support schemas (like PostgreSQL), you can organize tables into different schemas:
+
+<CodeGroup>
+```sql PostgreSQL
+CREATE SCHEMA pokemon;
+
+CREATE TABLE pokemon.types (
+    type_id INT PRIMARY KEY,
+    type_name VARCHAR NOT NULL
+);
+```
+
+```sql SQL Server
+CREATE SCHEMA dbo;
+
+CREATE TABLE dbo.employees (
+    emp_id INT PRIMARY KEY,
+    emp_name VARCHAR(100)
+);
+```
+</CodeGroup>
+
+<Tip>
+  Schemas help organize large databases by grouping related tables together. ChartDB automatically assigns new tables to the default schema for your database type.
+</Tip>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start with Templates">
+    If you're building a common type of application (e-commerce, blog, SaaS), start with a template and modify it. This saves time and ensures you don't miss important tables.
+  </Accordion>
+  
+  <Accordion title="Use Meaningful Names">
+    Give your diagram a clear, descriptive name that indicates its purpose or the application it represents.
+  </Accordion>
+  
+  <Accordion title="Import Real Schemas">
+    If you have an existing database, import it rather than recreating it manually. This ensures accuracy and saves time.
+  </Accordion>
+  
+  <Accordion title="Choose the Right Database Type">
+    Select the correct database type at the start. While you can change it later, data types and features vary between databases.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Editing Schema" icon="pen-to-square" href="/guides/editing-schema">
+    Learn how to add and modify tables and fields
+  </Card>
+  
+  <Card title="Managing Relationships" icon="link" href="/guides/managing-relationships">
+    Create and manage relationships between tables
+  </Card>
+  
+  <Card title="Using Areas" icon="layer-group" href="/guides/using-areas">
+    Organize your diagram with areas
+  </Card>
+  
+  <Card title="Templates" icon="grid" href="/guides/templates">
+    Explore all available templates
+  </Card>
+</CardGroup>

@@ -1,0 +1,262 @@
+---
+title: 'Table'
+description: 'Database table interface with fields, indexes, and constraints'
+---
+
+## Overview
+
+The `DBTable` interface represents a database table or view with its structure, position on the canvas, and metadata.
+
+## Interface Definition
+
+```typescript
+interface DBTable {
+    id: string;
+    name: string;
+    schema?: string | null;
+    x: number;
+    y: number;
+    fields: DBField[];
+    indexes: DBIndex[];
+    checkConstraints?: DBCheckConstraint[] | null;
+    color: string;
+    isView: boolean;
+    isMaterializedView?: boolean | null;
+    createdAt: number;
+    width?: number | null;
+    comments?: string | null;
+    order?: number | null;
+    expanded?: boolean | null;
+    parentAreaId?: string | null;
+}
+```
+
+## Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the table
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Table name (without schema prefix)
+</ParamField>
+
+<ParamField path="schema" type="string | null">
+  Database schema name (e.g., `'public'`, `'dbo'`). Null for default schema.
+</ParamField>
+
+<ParamField path="x" type="number" required>
+  X-coordinate position on the diagram canvas
+</ParamField>
+
+<ParamField path="y" type="number" required>
+  Y-coordinate position on the diagram canvas
+</ParamField>
+
+<ParamField path="fields" type="DBField[]" required>
+  Array of table columns/fields. See [Field](/api/field) for details.
+</ParamField>
+
+<ParamField path="indexes" type="DBIndex[]" required>
+  Array of indexes defined on the table. See [Index](/api/index) for details.
+</ParamField>
+
+<ParamField path="checkConstraints" type="DBCheckConstraint[] | null">
+  Array of check constraints for data validation.
+  
+  Each constraint has:
+  - `id`: Unique identifier
+  - `expression`: SQL expression (e.g., `'price > 0'`)
+  - `createdAt`: Timestamp
+</ParamField>
+
+<ParamField path="color" type="string" required>
+  Hex color code for the table card (e.g., `'#3b82f6'`)
+</ParamField>
+
+<ParamField path="isView" type="boolean" required>
+  Whether this is a database view (`true`) or a table (`false`)
+</ParamField>
+
+<ParamField path="isMaterializedView" type="boolean | null">
+  Whether this is a materialized view (PostgreSQL, Oracle)
+</ParamField>
+
+<ParamField path="createdAt" type="number" required>
+  Timestamp when the table was created in the diagram (milliseconds since epoch)
+</ParamField>
+
+<ParamField path="width" type="number | null">
+  Custom width for the table card in pixels. Defaults to `MIN_TABLE_SIZE` (224px) if not set.
+  
+  Available size constants:
+  - `MIN_TABLE_SIZE`: 224px
+  - `MID_TABLE_SIZE`: 337px
+  - `MAX_TABLE_SIZE`: 450px
+</ParamField>
+
+<ParamField path="comments" type="string | null">
+  Table-level comments/description (supported in PostgreSQL, MySQL, SQL Server)
+</ParamField>
+
+<ParamField path="order" type="number | null">
+  Display order for sorting tables
+</ParamField>
+
+<ParamField path="expanded" type="boolean | null">
+  Whether the table card is expanded to show all fields. If `false`, only shows first 10 fields.
+  
+  Constant: `TABLE_MINIMIZED_FIELDS = 10`
+</ParamField>
+
+<ParamField path="parentAreaId" type="string | null">
+  ID of the parent area this table belongs to for visual grouping
+</ParamField>
+
+## Zod Schema
+
+```typescript
+const dbTableSchema: z.ZodType<DBTable> = z.object({
+    id: z.string(),
+    name: z.string(),
+    schema: z.string().or(z.null()).optional(),
+    x: z.number(),
+    y: z.number(),
+    fields: z.array(dbFieldSchema),
+    indexes: z.array(dbIndexSchema),
+    checkConstraints: z.array(dbCheckConstraintSchema).or(z.null()).optional(),
+    color: z.string(),
+    isView: z.boolean(),
+    isMaterializedView: z.boolean().or(z.null()).optional(),
+    createdAt: z.number(),
+    width: z.number().or(z.null()).optional(),
+    comments: z.string().or(z.null()).optional(),
+    order: z.number().or(z.null()).optional(),
+    expanded: z.boolean().or(z.null()).optional(),
+    parentAreaId: z.string().or(z.null()).optional(),
+});
+```
+
+## Helper Functions
+
+### generateTableKey
+
+Creates a unique key for a table including schema:
+
+```typescript
+const generateTableKey = ({
+    schemaName,
+    tableName,
+}: {
+    schemaName: string | null | undefined;
+    tableName: string;
+}) => `${schemaNameToDomainSchemaName(schemaName) ?? ''}.${tableName}`;
+```
+
+### calcTableHeight
+
+Calculates the visual height of a table based on field count:
+
+```typescript
+const calcTableHeight = (table?: DBTable): number => {
+    const FIELD_HEIGHT = 32;
+    const TABLE_FOOTER_HEIGHT = 32;
+    const TABLE_HEADER_HEIGHT = 42;
+    
+    const fieldCount = table.fields.length;
+    const visibleFieldCount = table.expanded 
+        ? fieldCount 
+        : Math.min(fieldCount, TABLE_MINIMIZED_FIELDS);
+    
+    const fieldsHeight = visibleFieldCount * FIELD_HEIGHT;
+    const showMoreButton = fieldCount > TABLE_MINIMIZED_FIELDS 
+        ? TABLE_FOOTER_HEIGHT 
+        : 0;
+    
+    return TABLE_HEADER_HEIGHT + fieldsHeight + showMoreButton;
+};
+```
+
+### getTableDimensions
+
+Gets width and height for positioning:
+
+```typescript
+const getTableDimensions = (table: DBTable): { width: number; height: number } => {
+    return {
+        width: table.width || MIN_TABLE_SIZE,
+        height: calcTableHeight(table)
+    };
+};
+```
+
+## Example
+
+```typescript
+const usersTable: DBTable = {
+    id: 'table_users',
+    name: 'users',
+    schema: 'public',
+    x: 100,
+    y: 100,
+    fields: [
+        {
+            id: 'field_id',
+            name: 'id',
+            type: { id: 'uuid', name: 'uuid' },
+            primaryKey: true,
+            unique: true,
+            nullable: false,
+            createdAt: Date.now()
+        },
+        {
+            id: 'field_email',
+            name: 'email',
+            type: { id: 'varchar', name: 'varchar' },
+            primaryKey: false,
+            unique: true,
+            nullable: false,
+            characterMaximumLength: '255',
+            createdAt: Date.now()
+        },
+        {
+            id: 'field_created_at',
+            name: 'created_at',
+            type: { id: 'timestamp', name: 'timestamp' },
+            primaryKey: false,
+            unique: false,
+            nullable: false,
+            default: 'CURRENT_TIMESTAMP',
+            createdAt: Date.now()
+        }
+    ],
+    indexes: [
+        {
+            id: 'idx_email',
+            name: 'idx_users_email',
+            fieldIds: ['field_email'],
+            unique: true,
+            createdAt: Date.now()
+        }
+    ],
+    checkConstraints: [
+        {
+            id: 'check_1',
+            expression: 'email LIKE \'%@%\'',
+            createdAt: Date.now()
+        }
+    ],
+    color: '#3b82f6',
+    isView: false,
+    createdAt: Date.now(),
+    comments: 'Stores user account information',
+    expanded: true
+};
+```
+
+## Related Types
+
+- [Field](/api/field)
+- [Index](/api/index)
+- [Relationship](/api/relationship)
+- [Diagram](/api/diagram)

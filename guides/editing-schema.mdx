@@ -1,0 +1,483 @@
+---
+title: Editing Schema
+description: Learn how to create and modify tables, fields, and schema elements in ChartDB
+icon: 'pen-to-square'
+---
+
+## Table Management
+
+ChartDB provides intuitive tools for creating and managing database tables directly on the canvas.
+
+## Creating Tables
+
+### Using the Context Menu
+
+The quickest way to create a table:
+
+<Steps>
+  <Step title="Right-click on Canvas">
+    Right-click on any empty space on the canvas to open the context menu.
+  </Step>
+  
+  <Step title="Select 'New Table'">
+    Click **New Table** from the menu. A new table will be created at the clicked position.
+  </Step>
+  
+  <Step title="Enter Edit Mode">
+    The table automatically enters edit mode, allowing you to configure it immediately.
+  </Step>
+</Steps>
+
+<Note>
+  ChartDB automatically assigns tables to the appropriate schema based on your database type. For PostgreSQL, new tables use the `public` schema by default. For MySQL, the default database schema is used.
+</Note>
+
+### Table Position
+
+Tables are positioned at the exact point where you right-clicked. You can:
+
+- Drag tables to reposition them
+- Use the auto-layout feature to organize tables automatically
+- Snap tables to grid (if enabled)
+
+## Table Edit Mode
+
+Double-click on any table or click the **Edit** option from the table context menu to enter edit mode.
+
+### Editing Table Properties
+
+<Accordion title="Table Name">
+  - Click on the table name at the top
+  - Type the new name
+  - Press Enter to save
+  
+  **Naming Conventions:**
+  - Use lowercase with underscores (snake_case): `user_profiles`
+  - Use plural nouns: `orders`, `customers`
+  - Avoid special characters and spaces
+</Accordion>
+
+<Accordion title="Schema Assignment">
+  For databases that support schemas (PostgreSQL, SQL Server):
+  
+  - Select the schema from the dropdown
+  - Create new schemas if needed
+  - Leave empty for default schema
+</Accordion>
+
+<Accordion title="Table Color">
+  Customize table appearance:
+  
+  - Click the color picker
+  - Choose from preset colors
+  - Colors help visually group related tables
+  
+  **Available colors:**
+  - `#b067e9` (Purple)
+  - `#ff6b8a` (Pink)
+  - `#4dee8a` (Green)
+  - `#ffe374` (Yellow)
+  - `#7175fa` (Blue)
+  - `#42e0c0` (Teal)
+  - `#ff6363` (Red)
+  - `#8a61f5` (Violet)
+  - `#b0b0b0` (Gray - for views)
+</Accordion>
+
+<Accordion title="Table Type">
+  Toggle between regular table and view:
+  
+  - Regular tables: Standard database tables
+  - Views: Database views (rendered in gray)
+  - Materialized Views: For supported databases
+</Accordion>
+
+<Accordion title="Comments">
+  Add documentation to your tables:
+  
+  - Click the comments field
+  - Enter descriptive text about the table's purpose
+  - Comments are included in SQL exports
+</Accordion>
+
+## Managing Fields
+
+### Adding Fields
+
+While in edit mode:
+
+<Steps>
+  <Step title="Click 'Add Field'">
+    Click the **+ Add Field** button at the bottom of the field list.
+  </Step>
+  
+  <Step title="Enter Field Name">
+    Type the field name in the input that appears.
+  </Step>
+  
+  <Step title="Configure Field">
+    Set the field properties (see below).
+  </Step>
+</Steps>
+
+### Field Properties
+
+<ParamField path="name" type="string" required>
+  The field name. Use snake_case naming convention:
+  - `user_id`
+  - `created_at`
+  - `email_address`
+</ParamField>
+
+<ParamField path="type" type="DataType" required>
+  The data type. Available types depend on your database:
+  
+  **Common Types:**
+  - `INT`, `BIGINT`, `SMALLINT` (integers)
+  - `VARCHAR(n)`, `TEXT` (strings)
+  - `DECIMAL(p,s)`, `NUMERIC` (decimals)
+  - `DATE`, `TIMESTAMP`, `DATETIME` (temporal)
+  - `BOOLEAN` (true/false)
+  - `JSON`, `JSONB` (PostgreSQL)
+  - `UUID` (PostgreSQL)
+  - `ENUM` (MySQL, PostgreSQL)
+</ParamField>
+
+<ParamField path="primaryKey" type="boolean" default="false">
+  Mark this field as part of the primary key. Multiple fields can be selected for composite primary keys.
+</ParamField>
+
+<ParamField path="unique" type="boolean" default="false">
+  Enforce unique values for this field across all rows.
+</ParamField>
+
+<ParamField path="nullable" type="boolean" default="true">
+  Allow NULL values. Uncheck to make the field NOT NULL.
+</ParamField>
+
+<ParamField path="increment" type="boolean" default="false">
+  Enable auto-increment for integer fields (AUTO_INCREMENT in MySQL, SERIAL in PostgreSQL).
+</ParamField>
+
+<ParamField path="isArray" type="boolean" default="false">
+  For PostgreSQL: mark field as an array type (e.g., `INTEGER[]`).
+</ParamField>
+
+<ParamField path="characterMaximumLength" type="string">
+  For VARCHAR and CHAR types, specify the maximum length:
+  - `VARCHAR(255)`
+  - `CHAR(4)`
+</ParamField>
+
+<ParamField path="precision" type="number">
+  For DECIMAL/NUMERIC types, the total number of digits:
+  - `DECIMAL(10, 2)` - precision is 10
+</ParamField>
+
+<ParamField path="scale" type="number">
+  For DECIMAL/NUMERIC types, the number of decimal places:
+  - `DECIMAL(10, 2)` - scale is 2
+</ParamField>
+
+<ParamField path="default" type="string">
+  Default value for the field:
+  - `'active'` (string)
+  - `0` (number)
+  - `CURRENT_TIMESTAMP` (function)
+  - `NULL`
+</ParamField>
+
+<ParamField path="collation" type="string">
+  Character collation for string fields:
+  - `utf8mb4_general_ci` (MySQL)
+  - `en_US.UTF-8` (PostgreSQL)
+</ParamField>
+
+<ParamField path="comments" type="string">
+  Field-level documentation and comments.
+</ParamField>
+
+<ParamField path="check" type="string">
+  Check constraint expression:
+  - `age >= 0`
+  - `status IN ('active', 'inactive')`
+</ParamField>
+
+### Field Toggles
+
+Quick toggles for common field attributes:
+
+<CardGroup cols={3}>
+  <Card title="PK" icon="key">
+    **Primary Key**
+    
+    Toggle primary key status
+  </Card>
+  
+  <Card title="U" icon="fingerprint">
+    **Unique**
+    
+    Toggle unique constraint
+  </Card>
+  
+  <Card title="NN" icon="ban">
+    **Not Null**
+    
+    Toggle nullable status
+  </Card>
+</CardGroup>
+
+### Reordering Fields
+
+Fields can be reordered by:
+
+1. Clicking and dragging the field handle (⋮)
+2. Moving fields up or down in the list
+3. The order affects both display and SQL export
+
+### Deleting Fields
+
+<Warning>
+  Deleting a field that's used in relationships will also remove those relationships. This action cannot be undone.
+</Warning>
+
+To delete a field:
+
+1. Hover over the field in edit mode
+2. Click the delete (trash) icon
+3. Confirm the deletion
+
+## Table Context Menu
+
+Right-click on a table (outside edit mode) to access:
+
+<Steps>
+  <Step title="Edit Table">
+    Opens the table in edit mode for modifying fields and properties.
+  </Step>
+  
+  <Step title="Duplicate Table">
+    Creates a copy of the table:
+    - Appends `_copy` to the table name
+    - Copies all fields and their properties
+    - Positions the copy slightly offset from the original
+    - Does NOT copy relationships
+  </Step>
+  
+  <Step title="Add Relationship">
+    Starts relationship creation mode with this table as the source. Click on another table to complete the relationship.
+  </Step>
+  
+  <Step title="Delete Table">
+    Removes the table and all its relationships.
+  </Step>
+</Steps>
+
+## Indexes
+
+Manage table indexes for performance optimization:
+
+### Creating Indexes
+
+<Steps>
+  <Step title="Open Table in Edit Mode">
+    Double-click the table or select Edit from the context menu.
+  </Step>
+  
+  <Step title="Navigate to Indexes Tab">
+    Click on the **Indexes** tab (if available in your database type).
+  </Step>
+  
+  <Step title="Add Index">
+    Click **+ Add Index** and configure:
+    - Index name
+    - Fields to index (can select multiple)
+    - Unique constraint
+    - Index type (B-tree, Hash, etc.)
+  </Step>
+</Steps>
+
+### Primary Key Indexes
+
+Primary key fields automatically create a PRIMARY index:
+
+```sql
+CREATE TABLE employees (
+    emp_no INT PRIMARY KEY,  -- Automatically creates PRIMARY index
+    name VARCHAR(100)
+);
+```
+
+## Check Constraints
+
+Add validation rules to your tables:
+
+### Creating Check Constraints
+
+```sql
+CREATE TABLE salaries (
+    emp_no INT,
+    salary INT,
+    from_date DATE,
+    to_date DATE,
+    CONSTRAINT salary_check CHECK (salary >= 0),
+    CONSTRAINT date_check CHECK (to_date > from_date)
+);
+```
+
+<Steps>
+  <Step title="Open Constraints Tab">
+    In table edit mode, navigate to the **Constraints** tab.
+  </Step>
+  
+  <Step title="Add Constraint">
+    Click **+ Add Check Constraint**.
+  </Step>
+  
+  <Step title="Define Constraint">
+    Enter:
+    - Constraint name
+    - Check expression (e.g., `salary >= 0`)
+  </Step>
+</Steps>
+
+## Table Width
+
+Tables can be resized to accommodate long field names:
+
+- **Minimum width**: 224px
+- **Medium width**: 337px  
+- **Maximum width**: 450px
+
+Drag the table edge to resize, or ChartDB will auto-adjust based on content.
+
+## Expanding/Collapsing Tables
+
+Tables with many fields can be collapsed to save canvas space:
+
+- Tables show up to 10 fields when collapsed
+- Click **Show more** to expand and see all fields
+- Click **Show less** to collapse
+- The `expanded` property is saved with your diagram
+
+## Working with Views
+
+### Creating Database Views
+
+Views are virtual tables based on queries:
+
+<Steps>
+  <Step title="Create View">
+    Right-click canvas → **New View**
+  </Step>
+  
+  <Step title="Define Fields">
+    Add fields that will appear in the view result set
+  </Step>
+  
+  <Step title="Visual Distinction">
+    Views are automatically colored gray (#b0b0b0) to distinguish them from tables
+  </Step>
+</Steps>
+
+<Info>
+  Views in ChartDB represent the structure of the view's output, not the underlying query. For SQL export, views are exported as `CREATE VIEW` statements.
+</Info>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Naming Conventions">
+    **Tables:**
+    - Use plural nouns: `users`, `orders`, `products`
+    - Snake_case: `user_profiles`, `order_items`
+    
+    **Fields:**
+    - Snake_case: `first_name`, `created_at`
+    - Use `_id` suffix for foreign keys: `user_id`, `product_id`
+    - Use `_at` suffix for timestamps: `created_at`, `updated_at`
+  </Accordion>
+  
+  <Accordion title="Primary Keys">
+    - Always define a primary key
+    - Use auto-incrementing integers for most tables
+    - Use UUIDs for distributed systems
+    - Name PK fields consistently: `id` or `{table}_id`
+  </Accordion>
+  
+  <Accordion title="Data Types">
+    - Use appropriate sizes: `SMALLINT` for small numbers, `BIGINT` for large
+    - Use `VARCHAR(n)` with realistic limits, not `VARCHAR(255)` everywhere
+    - Use `TEXT` for unlimited length strings
+    - Use `DECIMAL` for currency, not `FLOAT`
+  </Accordion>
+  
+  <Accordion title="Constraints">
+    - Mark fields as NOT NULL when appropriate
+    - Use UNIQUE constraints for email, username, etc.
+    - Add check constraints for business rules
+    - Document constraints with comments
+  </Accordion>
+  
+  <Accordion title="Comments">
+    Add comments to:
+    - Tables explaining their purpose
+    - Complex fields requiring clarification
+    - Business rules and constraints
+    - Data retention policies
+  </Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Timestamps Pattern
+
+```sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### Soft Delete Pattern
+
+```sql
+CREATE TABLE products (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    deleted_at TIMESTAMP NULL,
+    INDEX idx_deleted_at (deleted_at)
+);
+```
+
+### UUID Primary Key Pattern
+
+```sql
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id BIGINT NOT NULL,
+    expires_at TIMESTAMP NOT NULL
+);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Relationships" icon="link" href="/guides/managing-relationships">
+    Connect tables with foreign key relationships
+  </Card>
+  
+  <Card title="Keyboard Shortcuts" icon="keyboard" href="/guides/keyboard-shortcuts">
+    Speed up your workflow with shortcuts
+  </Card>
+  
+  <Card title="Using Areas" icon="layer-group" href="/guides/using-areas">
+    Organize tables into logical groups
+  </Card>
+  
+  <Card title="Adding Notes" icon="note-sticky" href="/guides/adding-notes">
+    Document your schema with notes
+  </Card>
+</CardGroup>

@@ -1,0 +1,487 @@
+---
+title: 'Smart Query Import'
+description: 'Import database schemas directly from database metadata queries'
+icon: 'database'
+---
+
+Smart Query is ChartDB's most powerful import method, allowing you to extract complete database schema information directly from your database's metadata tables. This method provides the most accurate and comprehensive import results.
+
+## Overview
+
+The Smart Query method imports database schema by querying the database's internal metadata tables (such as `information_schema` in PostgreSQL and MySQL). This approach captures:
+
+- All tables and views
+- Complete field definitions with data types
+- Primary and foreign keys
+- Indexes (including types like GIN, BTREE, HASH)
+- Check constraints
+- Default values
+- Comments and descriptions
+- Custom types (enums, composite types)
+- Array fields (PostgreSQL)
+
+## Database Metadata Structure
+
+The imported JSON follows this structure:
+
+```typescript
+interface DatabaseMetadata {
+    database_name?: string;
+    tables: TableInfo[];
+    views?: ViewInfo[];
+    fk_info: ForeignKeyInfo[];
+    pk_info?: PrimaryKeyInfo[];
+    indexes?: IndexInfo[];
+    custom_types?: CustomTypeInfo[];
+    check_constraints?: CheckConstraintInfo[];
+}
+```
+
+## Metadata Import Scripts
+
+ChartDB provides pre-built SQL scripts for extracting metadata from various databases:
+
+<Tabs>
+  <Tab title="PostgreSQL">
+    Location: `src/lib/data/import-metadata/scripts/postgresql-script.ts`
+    
+    The PostgreSQL script extracts:
+    - Tables from `information_schema.tables`
+    - Columns from `information_schema.columns`
+    - Constraints from `pg_constraint`
+    - Indexes from `pg_indexes`
+    - Custom types from `pg_type`
+    - Array types and dimensions
+    - Check constraints
+    - Comments from `pg_description`
+  </Tab>
+
+  <Tab title="MySQL">
+    Location: `src/lib/data/import-metadata/scripts/mysql-script.ts`
+    
+    The MySQL script queries:
+    - Tables from `information_schema.tables`
+    - Columns from `information_schema.columns`
+    - Foreign keys from `information_schema.key_column_usage`
+    - Indexes from `information_schema.statistics`
+    - Check constraints (MySQL 8.0+)
+  </Tab>
+
+  <Tab title="SQL Server">
+    Location: `src/lib/data/import-metadata/scripts/mssql-script.ts`
+    
+    Extracts from system views:
+    - `sys.tables`
+    - `sys.columns`
+    - `sys.foreign_keys`
+    - `sys.indexes`
+    - `sys.check_constraints`
+  </Tab>
+
+  <Tab title="Oracle">
+    Location: `src/lib/data/import-metadata/scripts/oracle-script.ts`
+    
+    Queries Oracle catalog views:
+    - `ALL_TABLES`
+    - `ALL_TAB_COLUMNS`
+    - `ALL_CONSTRAINTS`
+    - `ALL_INDEXES`
+  </Tab>
+
+  <Tab title="CockroachDB">
+    Location: `src/lib/data/import-metadata/scripts/cockroachdb-script.ts`
+    
+    Uses PostgreSQL-compatible queries with CockroachDB-specific optimizations.
+  </Tab>
+
+  <Tab title="ClickHouse">
+    Location: `src/lib/data/import-metadata/scripts/clickhouse-script.ts`
+    
+    Queries ClickHouse system tables:
+    - `system.tables`
+    - `system.columns`
+  </Tab>
+</Tabs>
+
+## Import Process
+
+The metadata import process follows these steps:
+
+<Steps>
+  <Step title="Parse Metadata JSON">
+    ChartDB validates and parses the JSON structure containing database metadata.
+  </Step>
+  
+  <Step title="Create Tables">
+    Tables are created from metadata with all field information:
+    
+    ```typescript
+    const tables = createTablesFromMetadata({
+        databaseMetadata,
+        databaseType,
+    });
+    ```
+  </Step>
+  
+  <Step title="Create Relationships">
+    Foreign key relationships are established:
+    
+    ```typescript
+    const relationships = createRelationshipsFromMetadata({
+        foreignKeys,
+        tables,
+    });
+    ```
+  </Step>
+  
+  <Step title="Create Dependencies">
+    View dependencies are analyzed:
+    
+    ```typescript
+    const dependencies = await createDependenciesFromMetadata({
+        views,
+        tables,
+        databaseType,
+    });
+    ```
+  </Step>
+  
+  <Step title="Process Custom Types">
+    Enums and custom types are imported:
+    
+    ```typescript
+    const dbCustomTypes = customTypes
+        ? createCustomTypesFromMetadata({ customTypes })
+        : [];
+    ```
+  </Step>
+  
+  <Step title="Position Tables">
+    Tables are automatically positioned on the canvas:
+    
+    ```typescript
+    const adjustedTables = adjustTablePositions({
+        tables,
+        relationships,
+        mode: 'perSchema',
+    });
+    ```
+  </Step>
+</Steps>
+
+## Table Information
+
+### Column Metadata
+
+Each column includes comprehensive information:
+
+```typescript
+interface ColumnInfo {
+    table_name: string;
+    column_name: string;
+    data_type: string;
+    is_nullable: 'YES' | 'NO';
+    column_default?: string;
+    character_maximum_length?: number;
+    numeric_precision?: number;
+    numeric_scale?: number;
+    is_identity?: boolean;
+    collation_name?: string;
+}
+```
+
+### Example Column Import
+
+```json
+{
+  "table_name": "users",
+  "column_name": "email",
+  "data_type": "character varying",
+  "is_nullable": "NO",
+  "character_maximum_length": 255,
+  "column_default": null
+}
+```
+
+## Foreign Key Information
+
+Foreign keys are imported with full relationship details:
+
+```typescript
+interface ForeignKeyInfo {
+    constraint_name: string;
+    table_name: string;
+    column_name: string;
+    foreign_table_name: string;
+    foreign_column_name: string;
+    table_schema?: string;
+    foreign_table_schema?: string;
+}
+```
+
+### Example Foreign Key
+
+```json
+{
+  "constraint_name": "fk_posts_user_id",
+  "table_name": "posts",
+  "column_name": "user_id",
+  "foreign_table_name": "users",
+  "foreign_column_name": "id",
+  "table_schema": "public",
+  "foreign_table_schema": "public"
+}
+```
+
+## Index Information
+
+Indexes are imported with type and uniqueness information:
+
+```typescript
+interface IndexInfo {
+    table_name: string;
+    index_name: string;
+    column_name: string;
+    is_unique: boolean;
+    index_type?: 'btree' | 'hash' | 'gin' | 'gist' | 'spgist' | 'brin';
+}
+```
+
+### Supported Index Types
+
+<CardGroup cols={3}>
+  <Card title="BTREE" icon="tree">
+    Default B-tree index for most queries
+  </Card>
+  <Card title="HASH" icon="hashtag">
+    Hash index for equality comparisons
+  </Card>
+  <Card title="GIN" icon="magnifying-glass">
+    Generalized Inverted Index for arrays and full-text
+  </Card>
+  <Card title="GIST" icon="location-dot">
+    Generalized Search Tree for spatial data
+  </Card>
+  <Card title="SP-GIST" icon="vector-square">
+    Space-partitioned GIST for non-balanced structures
+  </Card>
+  <Card title="BRIN" icon="table-cells">
+    Block Range Index for very large tables
+  </Card>
+</CardGroup>
+
+## Custom Types
+
+### Enum Types
+
+PostgreSQL enums are fully supported:
+
+```typescript
+interface CustomTypeInfo {
+    schema_name?: string;
+    type_name: string;
+    kind: 'enum' | 'composite';
+    values?: string[];
+}
+```
+
+Example enum import:
+
+```json
+{
+  "type_name": "order_status",
+  "kind": "enum",
+  "values": ["pending", "processing", "shipped", "delivered"]
+}
+```
+
+## Check Constraints
+
+Check constraints are imported with their expressions:
+
+```typescript
+interface CheckConstraintInfo {
+    table_name: string;
+    constraint_name: string;
+    check_clause: string;
+}
+```
+
+Example:
+
+```json
+{
+  "table_name": "products",
+  "constraint_name": "price_positive",
+  "check_clause": "price > 0"
+}
+```
+
+## Complete Import Example
+
+<CodeGroup>
+
+```json PostgreSQL Metadata
+{
+  "database_name": "ecommerce",
+  "tables": [
+    {
+      "table_schema": "public",
+      "table_name": "users",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_schema": "public",
+      "table_name": "orders",
+      "table_type": "BASE TABLE"
+    }
+  ],
+  "fk_info": [
+    {
+      "constraint_name": "fk_orders_user_id",
+      "table_name": "orders",
+      "column_name": "user_id",
+      "foreign_table_name": "users",
+      "foreign_column_name": "id",
+      "table_schema": "public",
+      "foreign_table_schema": "public"
+    }
+  ],
+  "indexes": [
+    {
+      "table_name": "users",
+      "index_name": "users_email_idx",
+      "column_name": "email",
+      "is_unique": true,
+      "index_type": "btree"
+    }
+  ],
+  "custom_types": [
+    {
+      "type_name": "order_status",
+      "kind": "enum",
+      "values": ["pending", "confirmed", "shipped", "delivered"]
+    }
+  ]
+}
+```
+
+```typescript Import Code
+const diagram = await loadFromDatabaseMetadata({
+    databaseType: DatabaseType.POSTGRESQL,
+    databaseMetadata: metadata,
+    diagramNumber: 1,
+});
+```
+
+</CodeGroup>
+
+## Schema Organization
+
+Tables are automatically organized by schema:
+
+```typescript
+const adjustedTables = adjustTablePositions({
+    tables,
+    relationships,
+    mode: 'perSchema', // Groups tables by schema
+});
+```
+
+This creates a clean layout where tables from the same schema are grouped together.
+
+## View Support
+
+Database views are imported as special table objects:
+
+```typescript
+interface ViewInfo {
+    view_schema?: string;
+    view_name: string;
+    view_definition?: string;
+}
+```
+
+Views are marked with `isView: true` and positioned after regular tables.
+
+## Advanced Features
+
+### Array Fields (PostgreSQL)
+
+PostgreSQL array types are fully supported:
+
+```json
+{
+  "column_name": "tags",
+  "data_type": "ARRAY",
+  "udt_name": "text"
+}
+```
+
+This creates a field with `isArray: true`.
+
+### Comments and Descriptions
+
+Database comments are imported and displayed:
+
+```json
+{
+  "table_name": "users",
+  "comment": "Application user accounts"
+}
+```
+
+### Identity Columns
+
+Auto-increment and identity columns are recognized:
+
+```json
+{
+  "column_name": "id",
+  "is_identity": true,
+  "identity_generation": "ALWAYS"
+}
+```
+
+## Performance Optimization
+
+The metadata import is optimized for large schemas:
+
+<AccordionGroup>
+  <Accordion title="Efficient Parsing">
+    Tables are processed in a single pass with O(n) complexity.
+  </Accordion>
+  
+  <Accordion title="Relationship Mapping">
+    Foreign keys are mapped using hash tables for O(1) lookups.
+  </Accordion>
+  
+  <Accordion title="Lazy View Dependencies">
+    View dependencies are calculated asynchronously to avoid blocking.
+  </Accordion>
+  
+  <Accordion title="Sorted Output">
+    Tables are sorted alphabetically with views at the end for consistent layout.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Warning>
+Ensure your metadata JSON is valid and contains at least a `tables` array. Missing foreign key information will result in diagrams without relationships.
+</Warning>
+
+<Tip>
+For the most complete import, include all metadata fields: tables, foreign keys, indexes, custom types, and check constraints.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="DDL Import" icon="code" href="/features/ddl-import">
+    Import from SQL DDL scripts
+  </Card>
+  <Card title="Diagram Editor" icon="pen-ruler" href="/features/diagram-editor">
+    Edit your imported diagram
+  </Card>
+</CardGroup>

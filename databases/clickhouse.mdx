@@ -1,0 +1,442 @@
+---
+title: 'ClickHouse'
+description: 'Import ClickHouse analytics database schemas with columnar storage support'
+icon: 'database'
+---
+
+ChartDB provides support for ClickHouse, the high-performance column-oriented database for analytics.
+
+## Overview
+
+ClickHouse is optimized for online analytical processing (OLAP) with:
+- Column-oriented storage
+- Data compression
+- Vectorized query execution
+- Distributed queries
+- Real-time data ingestion
+
+ChartDB's ClickHouse support focuses on schema visualization and metadata extraction.
+
+## Smart Query Import
+
+The ClickHouse Smart Query uses system tables and arrayStringConcat for metadata extraction.
+
+### ClickHouse Query
+
+```sql
+WITH
+cols AS (
+    SELECT arrayStringConcat(arrayMap(col_tuple ->
+        concat('{"schema":"', col_tuple.1, '"',
+               ',"table":"', col_tuple.2, '"',
+               ',"name":"', col_tuple.3, '"',
+               ',"ordinal_position":', toString(col_tuple.4),
+               ',"type":"', col_tuple.5, '"',
+               ',"nullable":"', if(col_tuple.6 = 'NULLABLE', 'true', 'false'), '"',
+               ',"default":"', col_tuple.7, '"',
+               ',"comment":', if(col_tuple.8 = '', '""', toString(toJSONString(col_tuple.8))), '}'),
+        groupArray((
+            col.database,
+            col.table,
+            col.name,
+            col.position,
+            col.type,
+            null as default_kind,
+            col.default_expression,
+            col.comment
+        ))
+    ), ',') AS cols_metadata
+    FROM system.columns AS col
+    JOIN system.tables AS tbl
+        ON col.database = tbl.database AND col.table = tbl.name
+    WHERE lower(col.database) NOT IN ('system', 'information_schema')
+            AND lower(col.table) NOT LIKE '.inner_id.%'
+            AND tbl.is_temporary = 0
+),
+tbl_sizes AS (
+    SELECT database, table, sum(bytes_on_disk) AS size
+    FROM system.parts
+    GROUP BY database, table
+),
+tbls AS (
+    SELECT arrayStringConcat(arrayMap(tbl_tuple ->
+        concat('{"schema":"', tbl_tuple.1, '"',
+               ',"table":"', tbl_tuple.2, '"',
+               ',"rows":', toString(tbl_tuple.3),
+               ',"type":"', tbl_tuple.4, '"',
+               ',"engine":"', tbl_tuple.5, '"',
+               ',"collation":"",',
+               '"size":', toString(tbl_tuple.6), ',',
+               '"comment":', if(tbl_tuple.7 = '', '""', toString(toJSONString(tbl_tuple.7))), '}'),
+        groupArray((
+            tbl.database,
+            tbl.name,
+            tbl.total_rows,
+            tbl.type,
+            tbl.engine,
+            coalesce(ts.size, 0),
+            tbl.comment
+        ))
+    ), ',') AS tbls_metadata
+    FROM (
+        SELECT
+            tbl.database,
+            tbl.name,
+            coalesce(tbl.total_rows, 0) as total_rows,
+            if(tbl.engine = 'View', 'VIEW',
+                if(tbl.engine = 'MaterializedView', 'MATERIALIZED VIEW', 'TABLE')) AS type,
+            tbl.engine,
+            tbl.comment
+        FROM system.tables AS tbl
+        WHERE lower(tbl.database) NOT IN ('system', 'information_schema')
+            AND lower(tbl.name) NOT LIKE '.inner_id.%'
+            AND tbl.is_temporary = 0
+    ) AS tbl
+    LEFT JOIN tbl_sizes AS ts
+        ON tbl.database = ts.database AND tbl.name = ts.table
+),
+indexes AS (
+    SELECT arrayStringConcat(arrayMap((db, tbl, name) ->
+        concat('{"schema":"', db, '"',
+               ',"table":"', tbl, '"',
+               ',"name":"', name, '"',
+               ',"index_type":"",',
+               '"cardinality":"",',
+               '"size":"",',
+               '"unique":"false"}'),
+        groupArray((idx.database, idx.table, idx.name))
+    ), ',') AS indexes_metadata
+    FROM system.data_skipping_indices AS idx
+    WHERE lower(idx.database) NOT IN ('system', 'information_schema')
+            AND lower(idx.table) NOT LIKE '.inner_id.%'
+),
+views AS (
+    SELECT arrayStringConcat(arrayMap((db, name, definition) ->
+        concat('{"schema":"', db, '"',
+               ',"view_name":"', name, '"',
+               ',"view_definition":"',
+               base64Encode(replaceAll(replaceAll(definition, '\\\\', '\\\\\\\\'), '"', '\\\\"')), '"}'),
+        groupArray((vw.database, vw.name, vw.create_table_query))
+    ), ',') AS views_metadata
+    FROM system.tables AS vw
+    WHERE vw.engine in ('View', 'MaterializedView')
+      AND lower(vw.database) NOT IN ('system', 'information_schema')
+),
+pks AS (
+    SELECT
+        col.database AS schema_name,
+        col.table AS table_name,
+        groupArray(col.name) AS pk_columns,
+        concat('PRIMARY KEY(', arrayStringConcat(groupArray(col.name), ', '), ')') AS pk_def
+    FROM system.columns AS col
+    WHERE col.is_in_primary_key = 1
+        AND lower(col.database) NOT IN ('system', 'information_schema')
+        AND lower(col.table) NOT LIKE '.inner_id.%'
+    GROUP BY col.database, col.table
+),
+pks_metadata AS (
+    SELECT arrayStringConcat(arrayMap(pk_tuple ->
+        concat('{"schema":"', pk_tuple.1, '"',
+                ',"table":"', pk_tuple.2, '"',
+                ',"column":"', pk_tuple.3, '"',
+                ',"pk_def":"', pk_tuple.4, '"}'),
+        groupArray((
+            pks.schema_name,
+            pks.table_name,
+            arrayJoin(pks.pk_columns),
+            pks.pk_def
+        ))
+    ), ',') AS pk_metadata
+    FROM pks
+)
+SELECT
+    concat('{
+        "fk_info": [],',
+        '"pk_info": [', COALESCE((SELECT pk_metadata FROM pks_metadata), ''), '],',
+        '"columns": [', COALESCE((SELECT cols_metadata FROM cols), ''),
+        '], "indexes": [', COALESCE((SELECT indexes_metadata FROM indexes), ''),
+        '], "tables":[', COALESCE((SELECT tbls_metadata FROM tbls), ''),
+        '], "views":[', COALESCE((SELECT views_metadata FROM views), ''),
+        '], "database_name": "', currentDatabase(), '", "version": "', version(), '"}'
+) AS metadata_json_to_import;
+```
+
+### What the Smart Query Retrieves
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys (fk_info)">
+    ClickHouse does not enforce foreign key constraints, so this is always empty.
+    
+    <Info>
+    ClickHouse can declare foreign keys for documentation but doesn't enforce them.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Primary Keys (pk_info)">
+    - Database (schema) and table names
+    - Primary key columns from `is_in_primary_key` flag
+    - PK definitions
+    
+    <Note>
+    ClickHouse primary keys are used for data sorting, not uniqueness enforcement.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Columns (cols)">
+    - Data types (full type definitions)
+    - Ordinal position
+    - Nullable type detection
+    - Default expressions
+    - Column comments
+    - From `system.columns` table
+  </Accordion>
+
+  <Accordion title="Indexes (indexes)">
+    - Data skipping indexes from `system.data_skipping_indices`
+    - Index names
+    - Database and table associations
+    
+    <Note>
+    ClickHouse uses data skipping indexes for query optimization, not for constraints.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Tables (tbls)">
+    - Database (schema) and table names
+    - Total row counts
+    - Table types (TABLE, VIEW, MATERIALIZED VIEW)
+    - Storage engines (MergeTree, Log, etc.)
+    - Table sizes from `system.parts`
+    - Comments
+  </Accordion>
+
+  <Accordion title="Views">
+    - Database and view names
+    - View definitions (base64 encoded)
+    - Both regular views and materialized views
+  </Accordion>
+</AccordionGroup>
+
+## ClickHouse-Specific Features
+
+### Table Engines
+
+ClickHouse supports many table engines:
+
+**MergeTree Family** (most common):
+- **MergeTree**: Basic sorted storage
+- **ReplacingMergeTree**: Deduplicates rows
+- **SummingMergeTree**: Pre-aggregates data
+- **AggregatingMergeTree**: Stores aggregate function states
+- **CollapsingMergeTree**: Stores row state changes
+
+**Log Family** (simple engines):
+- **TinyLog**: Minimal overhead
+- **Log**: For small tables
+- **StripeLog**: Sequential access
+
+**Integration Engines**:
+- **Kafka**: Kafka integration
+- **MySQL**: MySQL table engine
+- **PostgreSQL**: PostgreSQL table engine
+
+**Special Engines**:
+- **Distributed**: Distributed query execution
+- **Dictionary**: Dictionary storage
+- **View**: View tables
+- **MaterializedView**: Materialized views
+
+### Primary Keys
+
+In ClickHouse, primary keys:
+- Determine data sorting order
+- Do NOT enforce uniqueness
+- Optimize query performance
+- Are specified with ORDER BY in CREATE TABLE
+
+```sql
+CREATE TABLE events (
+    date Date,
+    user_id UInt32,
+    event_name String
+)
+ENGINE = MergeTree()
+ORDER BY (date, user_id);  -- This is the primary key
+```
+
+### Data Types
+
+ClickHouse has specialized data types:
+
+**Integer Types**:
+- Int8, Int16, Int32, Int64
+- UInt8, UInt16, UInt32, UInt64
+- Int128, Int256, UInt256
+
+**Floating Point**:
+- Float32, Float64
+- Decimal(P,S), Decimal32(S), Decimal64(S), Decimal128(S)
+
+**String Types**:
+- String (variable length)
+- FixedString(N)
+
+**Date/Time**:
+- Date (day precision)
+- DateTime (second precision)
+- DateTime64 (subsecond precision)
+
+**Special Types**:
+- UUID
+- IPv4, IPv6
+- Enum8, Enum16
+- Array(T)
+- Tuple(T1, T2, ...)
+- Nullable(T)
+- LowCardinality(T)
+- Map(K,V)
+
+### Materialized Views
+
+ClickHouse materialized views are powerful:
+
+```sql
+CREATE MATERIALIZED VIEW daily_stats
+ENGINE = SummingMergeTree()
+ORDER BY date
+AS SELECT
+    toDate(timestamp) as date,
+    user_id,
+    count() as event_count
+FROM events
+GROUP BY date, user_id;
+```
+
+### No Foreign Keys
+
+ClickHouse does not enforce foreign key constraints. Relationships are managed at the application level.
+
+### Partitioning
+
+Tables can be partitioned for better performance:
+
+```sql
+CREATE TABLE logs (
+    date Date,
+    message String
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(date)
+ORDER BY date;
+```
+
+## SQL Import/Export Limitations
+
+ChartDB's SQL import/export for ClickHouse has limitations:
+
+<Warning>
+ClickHouse CREATE TABLE syntax is complex and engine-specific. ChartDB provides:
+- Basic schema visualization
+- Metadata extraction via Smart Query
+- Limited SQL import (basic CREATE TABLE only)
+- No SQL export (ClickHouse-specific syntax not supported)
+</Warning>
+
+### What Works
+- Importing metadata via Smart Query
+- Visualizing table structures
+- Viewing primary keys and columns
+- Understanding relationships (documentation only)
+
+### What Doesn't Work
+- Full CREATE TABLE parsing with engine options
+- Export to ClickHouse SQL
+- Foreign key constraints (ClickHouse doesn't support them)
+- Complex MergeTree parameters
+
+## Best Practices
+
+<Steps>
+  <Step title="Use appropriate table engines">
+    Choose MergeTree family for most use cases, Log family for small tables
+  </Step>
+  
+  <Step title="Design effective primary keys">
+    ORDER BY columns should match your most common query patterns
+  </Step>
+  
+  <Step title="Use materialized views">
+    Pre-aggregate data for fast query performance
+  </Step>
+  
+  <Step title="Partition large tables">
+    Use PARTITION BY for time-series data
+  </Step>
+  
+  <Step title="Document relationships">
+    Since ClickHouse doesn't enforce FKs, document them in table comments
+  </Step>
+</Steps>
+
+## Use Cases
+
+### When to Use ChartDB with ClickHouse
+
+<CardGroup cols={2}>
+  <Card title="Schema Documentation" icon="book">
+    Visualize and document your ClickHouse database structure
+  </Card>
+  <Card title="Data Dictionary" icon="list">
+    Extract and export table and column metadata
+  </Card>
+  <Card title="Schema Review" icon="magnifying-glass">
+    Review table structures and relationships
+  </Card>
+  <Card title="Migration Planning" icon="arrows-left-right">
+    Plan migrations from ClickHouse to other databases
+  </Card>
+</CardGroup>
+
+### When NOT to Use
+
+- Generating complete ClickHouse DDL
+- Managing complex table engines
+- Exporting to ClickHouse SQL format
+- Enforcing referential integrity
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Permission denied errors">
+    Ensure your user has SELECT permissions on:
+    - `system.columns`
+    - `system.tables`
+    - `system.parts`
+    - `system.data_skipping_indices`
+  </Accordion>
+
+  <Accordion title="Query timeout">
+    For very large databases, the metadata query may take time. Consider:
+    - Filtering specific databases
+    - Running during off-peak hours
+    - Increasing query timeout settings
+  </Accordion>
+
+  <Accordion title="Missing tables">
+    Check if tables are:
+    - In system or information_schema databases (filtered out)
+    - Temporary tables (filtered out)
+    - Starting with `.inner_id.` (internal tables, filtered out)
+  </Accordion>
+</AccordionGroup>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="ClickHouse Documentation" icon="book" href="https://clickhouse.com/docs">
+    Official ClickHouse documentation
+  </Card>
+  <Card title="Table Engines" icon="gears" href="https://clickhouse.com/docs/en/engines/table-engines">
+    Learn about ClickHouse table engines
+  </Card>
+</CardGroup>

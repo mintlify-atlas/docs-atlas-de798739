@@ -1,0 +1,455 @@
+---
+title: 'PostgreSQL'
+description: 'Import and export PostgreSQL database schemas with full support for advanced features'
+icon: 'elephant'
+---
+
+ChartDB provides comprehensive support for PostgreSQL, including advanced features like enums, composite types, arrays, and multi-schema designs.
+
+## Database Editions
+
+ChartDB supports multiple PostgreSQL editions:
+
+- **Standard PostgreSQL**: Full-featured open-source database
+- **Supabase**: Filters out internal schemas (auth, extensions, pgsodium, realtime, storage, vault)
+- **TimescaleDB**: Filters out TimescaleDB internal schemas and tables
+
+## Smart Query Import
+
+The PostgreSQL Smart Query extracts complete schema metadata in a single query execution.
+
+### Standard PostgreSQL Query
+
+```sql
+/* PostgreSQL edition */
+WITH fk_info AS (
+    SELECT array_to_string(array_agg(CONCAT('{
+        "schema":"', replace(schema_name, '"', ''), '",
+        "table":"', replace(table_name::text, '"', ''), '",
+        "column":"', replace(fk_column::text, '"', ''), '",
+        "foreign_key_name":"', foreign_key_name, '",
+        "reference_schema":"', COALESCE(replace(reference_schema, '"', ''), 'public'), '",
+        "reference_table":"', replace(reference_table, '"', ''), '",
+        "reference_column":"', replace(reference_column, '"', ''), '",
+        "fk_def":"', replace(fk_def, '"', ''), '"}')), ',') as fk_metadata
+    FROM (
+        SELECT c.conname AS foreign_key_name,
+                n.nspname AS schema_name,
+                CASE
+                    WHEN position('.' in conrelid::regclass::text) > 0
+                    THEN split_part(conrelid::regclass::text, '.', 2)
+                    ELSE conrelid::regclass::text
+                END AS table_name,
+                a.attname AS fk_column,
+                nr.nspname AS reference_schema,
+                CASE
+                    WHEN position('.' in confrelid::regclass::text) > 0
+                    THEN split_part(confrelid::regclass::text, '.', 2)
+                    ELSE confrelid::regclass::text
+                END AS reference_table,
+                af.attname AS reference_column,
+                pg_get_constraintdef(c.oid) as fk_def
+        FROM pg_constraint AS c
+        JOIN pg_attribute AS a ON a.attnum = ANY(c.conkey) AND a.attrelid = c.conrelid
+        JOIN pg_class AS cl ON cl.oid = c.conrelid
+        JOIN pg_namespace AS n ON n.oid = cl.relnamespace
+        JOIN pg_attribute AS af ON af.attnum = ANY(c.confkey) AND af.attrelid = c.confrelid
+        JOIN pg_class AS clf ON clf.oid = c.confrelid
+        JOIN pg_namespace AS nr ON nr.oid = clf.relnamespace
+        WHERE c.contype = 'f'
+            AND connamespace::regnamespace::text NOT IN ('information_schema', 'pg_catalog')
+    ) AS x
+),
+pk_info AS (
+    SELECT array_to_string(array_agg(CONCAT('{
+        "schema":"', replace(schema_name, '"', ''), '",
+        "table":"', replace(pk_table, '"', ''), '",
+        "column":"', replace(pk_column, '"', ''), '",
+        "pk_def":"', replace(pk_def, '"', ''), '"}')), ',') AS pk_metadata
+    FROM (
+        SELECT connamespace::regnamespace::text AS schema_name,
+            CASE
+                WHEN strpos(conrelid::regclass::text, '.') > 0
+                THEN split_part(conrelid::regclass::text, '.', 2)
+                ELSE conrelid::regclass::text
+            END AS pk_table,
+            unnest(string_to_array(substring(pg_get_constraintdef(oid) FROM '\\((.*?)\\)'), ',')) AS pk_column,
+            pg_get_constraintdef(oid) as pk_def
+        FROM pg_constraint
+        WHERE contype = 'p'
+            AND connamespace::regnamespace::text NOT IN ('information_schema', 'pg_catalog')
+    ) AS y
+),
+cols AS (
+    SELECT array_to_string(array_agg(CONCAT('{
+        "schema":"', cols.table_schema, '",
+        "table":"', cols.table_name, '",
+        "name":"', cols.column_name, '",
+        "ordinal_position":', cols.ordinal_position, ',
+        "type":"', CASE 
+            WHEN cols.column_default IS NOT NULL AND cols.column_default LIKE 'nextval(%' THEN
+                CASE
+                    WHEN LOWER(replace(cols.data_type, '"', '')) = 'smallint' THEN 'smallserial'
+                    WHEN LOWER(replace(cols.data_type, '"', '')) = 'integer' THEN 'serial'
+                    WHEN LOWER(replace(cols.data_type, '"', '')) = 'bigint' THEN 'bigserial'
+                    ELSE LOWER(replace(cols.data_type, '"', ''))
+                END
+            WHEN cols.data_type = 'ARRAY' THEN format_type(pg_type.typelem, NULL)
+            WHEN LOWER(replace(cols.data_type, '"', '')) = 'user-defined' THEN format_type(pg_type.oid, NULL)
+            ELSE LOWER(replace(cols.data_type, '"', ''))
+        END, '",
+        "character_maximum_length":"', COALESCE(cols.character_maximum_length::text, 'null'), '",
+        "precision":', CASE
+            WHEN cols.data_type = 'numeric' OR cols.data_type = 'decimal'
+            THEN CONCAT('{"precision":', COALESCE(cols.numeric_precision::text, 'null'), ',"scale":', COALESCE(cols.numeric_scale::text, 'null'), '}')
+            ELSE 'null'
+        END, ',
+        "nullable":', CASE WHEN (cols.IS_NULLABLE = 'YES') THEN 'true' ELSE 'false' END, ',
+        "is_identity":', CASE
+            WHEN cols.is_identity = 'YES' THEN 'true'
+            WHEN cols.column_default IS NOT NULL AND cols.column_default LIKE 'nextval(%' THEN 'true'
+            ELSE 'false'
+        END, ',
+        "is_array":', CASE
+            WHEN cols.data_type = 'ARRAY' OR pg_type.typelem > 0 THEN 'true'
+            ELSE 'false'
+        END, '}')), ',') AS cols_metadata
+    FROM information_schema.columns cols
+    LEFT JOIN pg_catalog.pg_type ON pg_type.oid = (
+        SELECT atttypid FROM pg_catalog.pg_attribute attr
+        WHERE attr.attrelid = (cols.table_schema || '.' || cols.table_name)::regclass
+        AND attr.attname = cols.column_name
+    )
+    WHERE cols.table_schema NOT IN ('information_schema', 'pg_catalog')
+),
+custom_types AS (
+    SELECT array_to_string(array_agg(type_json), ',') AS custom_types_metadata
+    FROM (
+        -- ENUM types
+        SELECT CONCAT(
+            '{"schema":"', n.nspname, '",
+            "type":"', t.typname, '",
+            "kind":"enum",
+            "values":[', string_agg('"' || e.enumlabel || '"', ',' ORDER BY e.enumsortorder), ']}'
+        ) AS type_json
+        FROM pg_type t
+        JOIN pg_enum e ON t.oid = e.enumtypid
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+        GROUP BY n.nspname, t.typname
+
+        UNION ALL
+
+        -- COMPOSITE types
+        SELECT CONCAT(
+            '{"schema":"', schema_name, '",
+            "type":"', type_name, '",
+            "kind":"composite",
+            "fields":[', fields_json, ']}'
+        ) AS type_json
+        FROM (
+            SELECT
+                n.nspname AS schema_name,
+                t.typname AS type_name,
+                string_agg(
+                    CONCAT('{"field":"', a.attname, '","type":"', format_type(a.atttypid, a.atttypmod), '"}'),
+                    ',' ORDER BY a.attnum
+                ) AS fields_json
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            JOIN pg_class c ON c.oid = t.typrelid
+            JOIN pg_attribute a ON a.attrelid = c.oid
+            WHERE t.typtype = 'c'
+              AND c.relkind = 'c'
+              AND a.attnum > 0 AND NOT a.attisdropped
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+            GROUP BY n.nspname, t.typname
+        ) AS comp
+    ) AS all_types
+)
+SELECT CONCAT('{"fk_info": [', COALESCE(fk_metadata, ''),
+    '], "pk_info": [', COALESCE(pk_metadata, ''),
+    '], "columns": [', COALESCE(cols_metadata, ''),
+    '], "custom_types": [', COALESCE(custom_types_metadata, ''),
+    '], "database_name": "', CURRENT_DATABASE(), '", "version": ""}') AS metadata_json_to_import
+FROM fk_info, pk_info, cols, custom_types;
+```
+
+<Note>
+For psql command-line usage, ChartDB provides a pre-formatted version with escaped characters:
+```bash
+psql -h HOST_NAME -p PORT -U USER_NAME -d DATABASE_NAME -c "[QUERY]" -t -A > output.json
+```
+</Note>
+
+### What the Smart Query Retrieves
+
+The PostgreSQL Smart Query extracts:
+
+<AccordionGroup>
+  <Accordion title="Foreign Keys (fk_info)">
+    - Schema and table names
+    - Column names
+    - Foreign key constraint names
+    - Referenced schema, table, and column
+    - Full FK definition from `pg_get_constraintdef()`
+  </Accordion>
+
+  <Accordion title="Primary Keys (pk_info)">
+    - Schema and table names
+    - Column names (supports composite keys)
+    - Primary key definitions
+  </Accordion>
+
+  <Accordion title="Columns (cols)">
+    - Data types (including automatic serial type detection)
+    - Character maximum length
+    - Numeric precision and scale
+    - Nullable constraints
+    - Default values (excluding serial sequences)
+    - Identity columns (GENERATED AS IDENTITY)
+    - Array types
+    - User-defined types
+  </Accordion>
+
+  <Accordion title="Indexes (indexes_metadata)">
+    - Index names and types (btree, hash, gin, gist, etc.)
+    - Indexed columns and positions
+    - Unique constraints
+    - Index size and cardinality
+    - Sort direction (ASC/DESC)
+  </Accordion>
+
+  <Accordion title="Custom Types (custom_types)">
+    - **ENUM types**: Name, schema, and all enum values
+    - **COMPOSITE types**: Name, schema, and field definitions
+  </Accordion>
+
+  <Accordion title="Check Constraints">
+    - Schema and table names
+    - Constraint expressions
+  </Accordion>
+
+  <Accordion title="Views">
+    - Schema and view names
+    - View definitions (empty in base query)
+  </Accordion>
+</AccordionGroup>
+
+## SQL Import
+
+ChartDB can parse PostgreSQL DDL scripts with support for:
+
+### Supported Features
+
+- **Table Creation**: CREATE TABLE with all column types
+- **Data Types**: All PostgreSQL types including:
+  - Serial types (serial, bigserial, smallserial)
+  - Arrays (integer[], text[], etc.)
+  - User-defined types and enums
+  - Numeric types with precision/scale
+  - Character types with length
+  - Timestamp types (with/without timezone)
+- **Constraints**:
+  - PRIMARY KEY (inline and table-level)
+  - FOREIGN KEY (inline REFERENCES and table-level)
+  - UNIQUE constraints
+  - CHECK constraints
+  - NOT NULL
+- **Custom Types**:
+  - CREATE TYPE ... AS ENUM
+  - CREATE TYPE ... AS (composite types)
+- **Indexes**: CREATE INDEX and CREATE UNIQUE INDEX
+- **Views**: CREATE VIEW and CREATE OR REPLACE VIEW
+- **Schemas**: Multi-schema support
+- **Sequences**: CREATE SEQUENCE
+- **Comments**: Single-line (--) and multi-line (/* */)
+
+### Import Example
+
+```sql
+-- Create custom enum type
+CREATE TYPE user_role AS ENUM ('admin', 'user', 'guest');
+
+-- Create schema
+CREATE SCHEMA IF NOT EXISTS "app";
+
+-- Create table with various features
+CREATE TABLE "app"."users" (
+    id bigserial PRIMARY KEY,
+    email varchar(255) NOT NULL UNIQUE,
+    username varchar(100) NOT NULL,
+    role user_role DEFAULT 'user',
+    tags text[],
+    profile jsonb DEFAULT '{}'::jsonb,
+    age integer CHECK (age >= 18),
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT username_length CHECK (length(username) >= 3)
+);
+
+-- Create related table with foreign key
+CREATE TABLE "app"."posts" (
+    id bigserial PRIMARY KEY,
+    user_id bigint NOT NULL,
+    title varchar(255) NOT NULL,
+    content text,
+    published boolean DEFAULT false,
+    created_at timestamp DEFAULT now(),
+    FOREIGN KEY (user_id) REFERENCES "app"."users"(id) ON DELETE CASCADE
+);
+
+-- Create index
+CREATE INDEX idx_posts_user_id ON "app"."posts"(user_id);
+CREATE UNIQUE INDEX idx_users_email ON "app"."users"(email);
+```
+
+This script will be fully parsed and imported into ChartDB, preserving:
+- The custom `user_role` enum
+- The `app` schema
+- All column types including arrays and jsonb
+- Foreign key relationship between posts and users
+- Check constraints
+- Indexes
+- Default values
+
+## SQL Export
+
+Export your ChartDB diagrams to production-ready PostgreSQL SQL.
+
+### Export Features
+
+- **Schema Creation**: CREATE SCHEMA IF NOT EXISTS statements
+- **Custom Types**: ENUMs and composite types with proper ordering
+- **Sequences**: Automatic sequence creation for serial types
+- **Serial Types**: Converts integer+identity to serial/bigserial/smallserial
+- **Array Types**: Preserves array notation (e.g., integer[])
+- **Constraints**:
+  - Primary keys as table constraints
+  - Unique constraints (avoids redundant PK indexes)
+  - Check constraints
+  - Foreign keys with ON DELETE/ON UPDATE
+- **Indexes**: Separate CREATE INDEX statements
+- **Comments**: Table and column comments using COMMENT ON
+- **Quoted Identifiers**: Proper quoting for reserved words and special characters
+
+### Export Example
+
+```sql
+CREATE SCHEMA IF NOT EXISTS "app";
+
+CREATE TYPE "app"."user_role" AS ENUM ('admin', 'user', 'guest');
+
+CREATE SEQUENCE IF NOT EXISTS users_id_seq;
+
+CREATE TABLE "app"."users" (
+    "id" bigserial NOT NULL,
+    "email" varchar(255) NOT NULL UNIQUE,
+    "username" varchar(100) NOT NULL,
+    "role" user_role DEFAULT 'user',
+    "tags" text[],
+    "profile" jsonb DEFAULT '{}'::jsonb,
+    "age" integer,
+    "created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY ("id"),
+    CHECK (age >= 18),
+    CHECK (length(username) >= 3)
+);
+COMMENT ON TABLE "app"."users" IS 'Application users';
+COMMENT ON COLUMN "app"."users"."email" IS 'User email address';
+
+-- Indexes
+CREATE UNIQUE INDEX "users_email_idx" ON "app"."users" ("email");
+
+-- Foreign key constraints
+ALTER TABLE "app"."posts" ADD CONSTRAINT "fk_posts_user_id_users_id" 
+    FOREIGN KEY("user_id") REFERENCES "app"."users"("id") ON DELETE CASCADE;
+```
+
+## PostgreSQL-Specific Features
+
+### Serial Types
+
+ChartDB automatically handles PostgreSQL serial types:
+
+- **serial** (serial4): Converts to/from integer with sequence
+- **bigserial** (serial8): Converts to/from bigint with sequence  
+- **smallserial** (serial2): Converts to/from smallint with sequence
+
+### Array Types
+
+Full support for PostgreSQL arrays:
+
+```sql
+tags text[]
+scores integer[]
+matrix double precision[][]
+```
+
+### Custom Types
+
+**ENUM Types:**
+```sql
+CREATE TYPE status AS ENUM ('pending', 'active', 'archived');
+```
+
+**Composite Types:**
+```sql
+CREATE TYPE address AS (
+    street varchar(100),
+    city varchar(50),
+    zipcode varchar(10)
+);
+```
+
+### GENERATED Identity Columns
+
+Support for SQL standard identity columns:
+
+```sql
+id bigint GENERATED BY DEFAULT AS IDENTITY
+id bigint GENERATED ALWAYS AS IDENTITY
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use schemas for organization">
+    Organize your tables into logical schemas (e.g., `public`, `auth`, `analytics`)
+  </Step>
+  
+  <Step title="Leverage custom types">
+    Use ENUMs for fixed value sets to ensure data consistency
+  </Step>
+  
+  <Step title="Add comments">
+    Document tables and columns with COMMENT ON statements for better clarity
+  </Step>
+  
+  <Step title="Use proper constraints">
+    Define CHECK constraints, UNIQUE constraints, and foreign keys for data integrity
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Query execution timeout">
+    For very large databases, increase the statement timeout:
+    ```sql
+    SET statement_timeout = '300s';
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    Ensure your database user has SELECT permissions on system catalogs:
+    - `pg_constraint`
+    - `pg_attribute`
+    - `pg_class`
+    - `pg_namespace`
+    - `information_schema.columns`
+  </Accordion>
+
+  <Accordion title="Missing custom types">
+    Custom types are only retrieved from non-system schemas. Ensure your types are not in `pg_catalog` or `information_schema`.
+  </Accordion>
+</AccordionGroup>

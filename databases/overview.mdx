@@ -1,0 +1,182 @@
+---
+title: 'Database Support Overview'
+description: 'ChartDB supports multiple database systems with Smart Query import and SQL export'
+icon: 'database'
+---
+
+ChartDB provides comprehensive support for 9 major database systems, enabling you to visualize, design, and export database schemas across different platforms.
+
+## Supported Databases
+
+ChartDB supports the following database systems:
+
+<CardGroup cols={3}>
+  <Card title="PostgreSQL" icon="database" href="/databases/postgresql">
+    Open-source relational database with advanced features
+  </Card>
+  <Card title="MySQL" icon="database" href="/databases/mysql">
+    Popular open-source relational database
+  </Card>
+  <Card title="SQL Server" icon="database" href="/databases/sql-server">
+    Microsoft's enterprise database platform
+  </Card>
+  <Card title="MariaDB" icon="database" href="/databases/mariadb">
+    MySQL-compatible open-source database
+  </Card>
+  <Card title="SQLite" icon="database" href="/databases/sqlite">
+    Lightweight embedded database
+  </Card>
+  <Card title="ClickHouse" icon="database" href="/databases/clickhouse">
+    Column-oriented analytics database
+  </Card>
+  <Card title="CockroachDB" icon="database" href="/databases/cockroachdb">
+    Distributed PostgreSQL-compatible database
+  </Card>
+  <Card title="Oracle" icon="database" href="/databases/oracle">
+    Enterprise-grade relational database
+  </Card>
+</CardGroup>
+
+## Import Methods
+
+### Smart Query Import
+
+The **Smart Query** is a specially crafted SQL query that extracts complete schema metadata from your database in a single execution. Each database type has its own optimized Smart Query.
+
+<Note>
+The Smart Query retrieves:
+- Tables and views
+- Columns with data types, nullability, and defaults
+- Primary keys and foreign keys
+- Indexes
+- Check constraints
+- Custom types (enums, composite types)
+- Database metadata and version information
+</Note>
+
+Smart Query results return structured JSON that ChartDB can import directly.
+
+### SQL Script Import
+
+Import existing SQL DDL scripts (CREATE TABLE statements) to generate diagrams. ChartDB's SQL parser supports:
+
+- CREATE TABLE statements
+- Foreign key relationships (FOREIGN KEY, REFERENCES)
+- Primary keys and unique constraints
+- Check constraints
+- Indexes
+- Custom types (PostgreSQL enums, composite types)
+- Views
+- Multi-schema support
+
+## Export Capabilities
+
+### SQL Export
+
+Export your diagrams to executable SQL scripts for:
+
+- **PostgreSQL**: Full support including schemas, enums, composite types, arrays, and sequences
+- **MySQL**: Optimized for MySQL syntax with AUTO_INCREMENT and table comments
+- **SQL Server**: T-SQL compatible scripts
+- **SQLite**: Lightweight schema creation
+
+<Info>
+ChartDB automatically handles database-specific syntax differences when exporting, including:
+- Data type mappings
+- Identifier quoting (backticks, double quotes)
+- Auto-increment syntax
+- Default value formatting
+- Schema/database qualifiers
+</Info>
+
+### Cross-Database Export
+
+ChartDB supports cross-dialect export, allowing you to design in one database type and export to another. The system automatically:
+
+- Maps data types between databases
+- Converts syntax differences
+- Handles unsupported features with warnings
+- Preserves as much schema information as possible
+
+## Database-Specific Features
+
+### PostgreSQL Family
+
+<AccordionGroup>
+  <Accordion title="PostgreSQL">
+    - Full enum and composite type support
+    - Array columns
+    - Sequences and serial types
+    - Multi-schema support
+    - Supabase and TimescaleDB editions
+  </Accordion>
+  
+  <Accordion title="CockroachDB">
+    - PostgreSQL-compatible syntax
+    - Distributed architecture awareness
+    - System schema filtering
+  </Accordion>
+</AccordionGroup>
+
+### MySQL Family
+
+<AccordionGroup>
+  <Accordion title="MySQL">
+    - Storage engines (InnoDB, MyISAM)
+    - AUTO_INCREMENT support
+    - Table and column comments
+    - Multiple versions (5.7, 8.0+)
+  </Accordion>
+  
+  <Accordion title="MariaDB">
+    - MySQL-compatible syntax
+    - Enhanced GROUP_CONCAT support
+    - InnoDB statistics
+  </Accordion>
+</AccordionGroup>
+
+### Enterprise Databases
+
+<AccordionGroup>
+  <Accordion title="SQL Server">
+    - Multi-schema support
+    - Identity columns
+    - Version support (2016-, 2017+)
+    - JSON_QUERY for metadata
+  </Accordion>
+  
+  <Accordion title="Oracle">
+    - Schema-qualified objects
+    - JSON_OBJECT for metadata
+    - Current schema context
+  </Accordion>
+</AccordionGroup>
+
+### Specialized Databases
+
+<AccordionGroup>
+  <Accordion title="ClickHouse">
+    - Column-oriented storage
+    - MergeTree engines
+    - Materialized views
+    - Primary key indexing
+  </Accordion>
+  
+  <Accordion title="SQLite">
+    - Schema-less design
+    - PRAGMA-based metadata
+    - Cloudflare D1 support
+    - Embedded database features
+  </Accordion>
+</AccordionGroup>
+
+## Getting Started
+
+1. **Choose your database** from the supported list
+2. **Import your schema** using Smart Query or SQL script
+3. **Design and visualize** your database structure
+4. **Export** to SQL for implementation
+
+<Card title="Next Steps" icon="arrow-right">
+  Select your database type to learn about specific Smart Queries, import methods, and features.
+</Card>

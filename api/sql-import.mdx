@@ -1,0 +1,545 @@
+---
+title: 'SQL Import'
+description: 'Import database schemas from SQL DDL statements'
+---
+
+## Overview
+
+The SQL Import feature parses SQL DDL (Data Definition Language) statements and converts them into ChartDB diagrams. It supports multiple SQL dialects and extracts tables, columns, indexes, constraints, and relationships.
+
+## SQL Parser Result Interface
+
+```typescript
+interface SQLParserResult {
+    tables: SQLTable[];
+    relationships: SQLForeignKey[];
+    types?: SQLCustomType[];
+    enums?: SQLEnumType[];
+    warnings?: string[];
+}
+```
+
+## Core Interfaces
+
+### SQLTable
+
+Represents a parsed table from SQL:
+
+```typescript
+interface SQLTable {
+    id: string;
+    name: string;
+    schema?: string;
+    columns: SQLColumn[];
+    indexes: SQLIndex[];
+    checkConstraints?: SQLCheckConstraint[];
+    comment?: string;
+    order: number;
+    isView?: boolean;
+}
+```
+
+<ParamField path="id" type="string" required>
+  Unique identifier generated during parsing
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Table name extracted from CREATE TABLE statement
+</ParamField>
+
+<ParamField path="schema" type="string">
+  Schema name if specified (e.g., `public.users`)
+</ParamField>
+
+<ParamField path="columns" type="SQLColumn[]" required>
+  Array of column definitions
+</ParamField>
+
+<ParamField path="indexes" type="SQLIndex[]" required>
+  Array of indexes from CREATE INDEX statements
+</ParamField>
+
+<ParamField path="checkConstraints" type="SQLCheckConstraint[]">
+  Array of CHECK constraints
+</ParamField>
+
+<ParamField path="comment" type="string">
+  Table comment from COMMENT ON TABLE statement
+</ParamField>
+
+<ParamField path="order" type="number" required>
+  Parse order (0-based index)
+</ParamField>
+
+<ParamField path="isView" type="boolean">
+  Whether this is a VIEW instead of a TABLE
+</ParamField>
+
+### SQLColumn
+
+Represents a parsed column:
+
+```typescript
+interface SQLColumn {
+    name: string;
+    type: string;
+    nullable: boolean;
+    primaryKey: boolean;
+    unique: boolean;
+    typeArgs?: {
+        length?: number;
+        precision?: number;
+        scale?: number;
+    } | number[] | string;
+    comment?: string;
+    default?: string;
+    increment?: boolean;
+}
+```
+
+<ParamField path="name" type="string" required>
+  Column name
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  Data type (e.g., `'varchar'`, `'integer'`, `'timestamp'`)
+</ParamField>
+
+<ParamField path="nullable" type="boolean" required>
+  Whether NULL values are allowed
+</ParamField>
+
+<ParamField path="primaryKey" type="boolean" required>
+  Whether this is a primary key column
+</ParamField>
+
+<ParamField path="unique" type="boolean" required>
+  Whether this has a UNIQUE constraint
+</ParamField>
+
+<ParamField path="typeArgs" type="object | number[] | string">
+  Type arguments for sized/precision types:
+  
+  Object format:
+  - `length`: For VARCHAR(n), CHAR(n)
+  - `precision`: For DECIMAL(p,s), NUMERIC(p,s)
+  - `scale`: For DECIMAL(p,s), NUMERIC(p,s)
+  
+  Array format (SQL Server):
+  - `[length]` or `[precision, scale]`
+  
+  String format:
+  - `'max'` for VARCHAR(MAX)
+</ParamField>
+
+<ParamField path="comment" type="string">
+  Column comment
+</ParamField>
+
+<ParamField path="default" type="string">
+  Default value expression
+</ParamField>
+
+<ParamField path="increment" type="boolean">
+  Auto-increment flag
+</ParamField>
+
+### SQLForeignKey
+
+Represents a foreign key relationship:
+
+```typescript
+interface SQLForeignKey {
+    name: string;
+    sourceTable: string;
+    sourceSchema?: string;
+    sourceColumn: string;
+    targetTable: string;
+    targetSchema?: string;
+    targetColumn: string;
+    sourceTableId: string;
+    targetTableId: string;
+    updateAction?: string;
+    deleteAction?: string;
+    sourceCardinality?: Cardinality;
+    targetCardinality?: Cardinality;
+}
+```
+
+<ParamField path="name" type="string" required>
+  Constraint name
+</ParamField>
+
+<ParamField path="sourceTable" type="string" required>
+  Table with the foreign key
+</ParamField>
+
+<ParamField path="sourceColumn" type="string" required>
+  Foreign key column
+</ParamField>
+
+<ParamField path="targetTable" type="string" required>
+  Referenced table
+</ParamField>
+
+<ParamField path="targetColumn" type="string" required>
+  Referenced column (typically primary key)
+</ParamField>
+
+<ParamField path="updateAction" type="string">
+  ON UPDATE action (`CASCADE`, `SET NULL`, `RESTRICT`, etc.)
+</ParamField>
+
+<ParamField path="deleteAction" type="string">
+  ON DELETE action (`CASCADE`, `SET NULL`, `RESTRICT`, etc.)
+</ParamField>
+
+### SQLIndex
+
+Represents an index:
+
+```typescript
+interface SQLIndex {
+    name: string;
+    columns: string[];
+    unique: boolean;
+    type?: string;
+}
+```
+
+<ParamField path="name" type="string" required>
+  Index name
+</ParamField>
+
+<ParamField path="columns" type="string[]" required>
+  Array of column names in the index
+</ParamField>
+
+<ParamField path="unique" type="boolean" required>
+  Whether this is a UNIQUE index
+</ParamField>
+
+<ParamField path="type" type="string">
+  Index type (e.g., `'btree'`, `'gin'`, `'hash'`)
+</ParamField>
+
+## Conversion Function
+
+### convertToChartDBDiagram
+
+Converts SQL parser result to a ChartDB diagram:
+
+```typescript
+function convertToChartDBDiagram(
+    parserResult: SQLParserResult,
+    sourceDatabaseType: DatabaseType,
+    targetDatabaseType: DatabaseType
+): Diagram {
+    // Convert SQL tables to DBTable objects
+    const tables: DBTable[] = parserResult.tables.map((table, index) => {
+        const fields: DBField[] = table.columns.map((column) => {
+            // Map SQL type to DataType
+            const mappedType = mapSQLTypeToGenericType(
+                column.type,
+                sourceDatabaseType
+            );
+            
+            // Handle array types
+            const isArrayType = column.type.endsWith('[]');
+            const baseType = isArrayType 
+                ? column.type.slice(0, -2) 
+                : column.type;
+            
+            return {
+                id: generateId(),
+                name: column.name,
+                type: mappedType,
+                nullable: column.nullable,
+                primaryKey: column.primaryKey,
+                unique: column.unique,
+                increment: column.increment,
+                isArray: isArrayType || undefined,
+                default: column.default || '',
+                createdAt: Date.now(),
+                // Add type arguments
+                characterMaximumLength: column.typeArgs?.length,
+                precision: column.typeArgs?.precision,
+                scale: column.typeArgs?.scale,
+            };
+        });
+        
+        // Convert indexes
+        const indexes = table.indexes.map((sqlIndex) => ({
+            id: generateId(),
+            name: sqlIndex.name,
+            fieldIds: sqlIndex.columns.map(/* map to field IDs */),
+            unique: sqlIndex.unique,
+            type: sqlIndex.type,
+            createdAt: Date.now(),
+        }));
+        
+        return {
+            id: generateId(),
+            name: table.name,
+            schema: table.schema || '',
+            fields,
+            indexes,
+            x: (index % 4) * 300,
+            y: Math.floor(index / 4) * 300,
+            color: defaultTableColor,
+            isView: table.isView ?? false,
+            createdAt: Date.now(),
+        };
+    });
+    
+    // Convert relationships
+    const relationships: DBRelationship[] = parserResult.relationships.map((rel) => ({
+        id: generateId(),
+        name: rel.name,
+        sourceTableId: /* find table ID */,
+        targetTableId: /* find table ID */,
+        sourceFieldId: /* find field ID */,
+        targetFieldId: /* find field ID */,
+        sourceCardinality: rel.sourceCardinality || 'one',
+        targetCardinality: rel.targetCardinality || 'many',
+        createdAt: Date.now(),
+    }));
+    
+    return {
+        id: generateDiagramId(),
+        name: `SQL Import (${sourceDatabaseType})`,
+        databaseType: targetDatabaseType,
+        tables,
+        relationships,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+}
+```
+
+## Type Mapping
+
+### mapSQLTypeToGenericType
+
+Maps SQL types to ChartDB DataType:
+
+```typescript
+function mapSQLTypeToGenericType(
+    sqlType: string,
+    databaseType?: DatabaseType
+): DataType {
+    const normalizedType = sqlType.toLowerCase();
+    
+    // Get dialect-specific mappings
+    const typeMap: Record<string, string> = {
+        // PostgreSQL
+        'int4': 'integer',
+        'int8': 'bigint',
+        'int2': 'smallint',
+        'bool': 'boolean',
+        'character varying': 'varchar',
+        
+        // MySQL
+        'tinyint': 'tinyint',
+        'mediumint': 'mediumint',
+        
+        // SQL Server
+        'nvarchar': 'nvarchar',
+        'uniqueidentifier': 'uniqueidentifier',
+        
+        // Common
+        'int': 'integer',
+        'varchar': 'varchar',
+        'text': 'text',
+        'timestamp': 'timestamp',
+        'decimal': 'decimal',
+    };
+    
+    const mappedId = typeMap[normalizedType] || normalizedType;
+    return { id: mappedId, name: mappedId };
+}
+```
+
+## Helper Functions
+
+### quoteIdentifier
+
+Quotes identifiers based on database type:
+
+```typescript
+function quoteIdentifier(str: string, dbType: DatabaseType): string {
+    switch (dbType) {
+        case DatabaseType.MYSQL:
+        case DatabaseType.MARIADB:
+            return `\`${str}\``;
+        case DatabaseType.POSTGRESQL:
+        case DatabaseType.SQLITE:
+            return `"${str}"`;
+        case DatabaseType.SQL_SERVER:
+            return `[${str}]`;
+        default:
+            return str;
+    }
+}
+```
+
+### buildSQLFromAST
+
+Builds SQL expressions from Abstract Syntax Tree nodes:
+
+```typescript
+function buildSQLFromAST(
+    ast: SQLASTNode | null | undefined,
+    dbType: DatabaseType = DatabaseType.GENERIC
+): string {
+    if (!ast) return '';
+    
+    // Handle default value wrapper
+    if (ast.type === 'default' && 'value' in ast) {
+        return buildSQLFromAST(ast.value, dbType);
+    }
+    
+    // Handle cast expressions (e.g., 'value'::type)
+    if (ast.type === 'cast') {
+        const expr = buildSQLFromAST(ast.expr, dbType);
+        return `${expr}::${ast.target[0].dataType}`;
+    }
+    
+    // Handle function calls
+    if (ast.type === 'function') {
+        const funcName = typeof ast.name === 'string' 
+            ? ast.name 
+            : ast.name.name[0].value;
+        const args = ast.args?.value.map(buildSQLFromAST).join(', ');
+        return `${funcName}(${args || ''})`;
+    }
+    
+    // Handle literals
+    if (ast.type === 'single_quote_string') {
+        return `'${ast.value}'`;
+    }
+    
+    if (ast.type === 'number') {
+        return String(ast.value);
+    }
+    
+    return '';
+}
+```
+
+## Example SQL Import
+
+### PostgreSQL Example
+
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tags TEXT[],
+    CHECK (email LIKE '%@%')
+);
+
+CREATE TABLE orders (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL,
+    total DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_users_tags ON users USING GIN(tags);
+```
+
+Parsed result:
+
+```typescript
+{
+    tables: [
+        {
+            id: 'table_1',
+            name: 'users',
+            columns: [
+                {
+                    name: 'id',
+                    type: 'uuid',
+                    nullable: false,
+                    primaryKey: true,
+                    unique: true,
+                    default: 'gen_random_uuid()'
+                },
+                {
+                    name: 'email',
+                    type: 'varchar',
+                    nullable: false,
+                    primaryKey: false,
+                    unique: true,
+                    typeArgs: { length: 255 }
+                },
+                {
+                    name: 'tags',
+                    type: 'text[]',
+                    nullable: true,
+                    primaryKey: false,
+                    unique: false
+                }
+            ],
+            indexes: [
+                {
+                    name: 'idx_users_tags',
+                    columns: ['tags'],
+                    unique: false,
+                    type: 'gin'
+                }
+            ],
+            checkConstraints: [
+                { expression: "email LIKE '%@%'" }
+            ],
+            order: 0
+        },
+        {
+            id: 'table_2',
+            name: 'orders',
+            columns: [/* ... */],
+            indexes: [/* ... */],
+            order: 1
+        }
+    ],
+    relationships: [
+        {
+            name: 'orders_user_id_fkey',
+            sourceTable: 'users',
+            sourceColumn: 'id',
+            targetTable: 'orders',
+            targetColumn: 'user_id',
+            sourceTableId: 'table_1',
+            targetTableId: 'table_2'
+        }
+    ]
+}
+```
+
+## Supported SQL Features
+
+| Feature | PostgreSQL | MySQL | SQL Server | SQLite |
+|---------|-----------|-------|------------|--------|
+| CREATE TABLE | ✅ | ✅ | ✅ | ✅ |
+| PRIMARY KEY | ✅ | ✅ | ✅ | ✅ |
+| FOREIGN KEY | ✅ | ✅ | ✅ | ✅ |
+| UNIQUE | ✅ | ✅ | ✅ | ✅ |
+| CHECK | ✅ | ✅ | ✅ | ✅ |
+| DEFAULT | ✅ | ✅ | ✅ | ✅ |
+| NOT NULL | ✅ | ✅ | ✅ | ✅ |
+| AUTO_INCREMENT | ✅ | ✅ | ✅ | ✅ |
+| CREATE INDEX | ✅ | ✅ | ✅ | ✅ |
+| CREATE VIEW | ✅ | ✅ | ✅ | ✅ |
+| CREATE TYPE (ENUM) | ✅ | ❌ | ❌ | ❌ |
+| Array Types | ✅ | ❌ | ❌ | ❌ |
+| COMMENT ON | ✅ | Inline | Extended Props | ❌ |
+
+## Related
+
+- [Diagram](/api/diagram)
+- [SQL Export](/api/sql-export)
+- [Database Types](/api/database-types)
+- [Import Metadata](/api/import-metadata)

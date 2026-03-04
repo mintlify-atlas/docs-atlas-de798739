@@ -1,0 +1,508 @@
+---
+title: 'Installation'
+description: 'Deploy ChartDB locally using Docker, npm, or from source'
+---
+
+## Overview
+
+ChartDB can be deployed locally in several ways. Choose the method that best fits your workflow:
+
+- **Docker** - Recommended for production deployments
+- **npm** - Best for development and customization
+- **From Source** - For contributors and advanced users
+
+<Info>
+  All installation methods support optional AI features via OpenAI API or custom inference servers.
+</Info>
+
+## Prerequisites
+
+Depending on your installation method, you'll need:
+
+<Tabs>
+  <Tab title="Docker">
+    - Docker installed ([Get Docker](https://docs.docker.com/get-docker/))
+    - (Optional) OpenAI API key for AI features
+  </Tab>
+  
+  <Tab title="npm">
+    - Node.js 24 or higher ([Download Node.js](https://nodejs.org/))
+    - npm (included with Node.js)
+    - (Optional) OpenAI API key for AI features
+  </Tab>
+  
+  <Tab title="Source">
+    - Node.js 24 or higher
+    - Git
+    - npm or compatible package manager
+  </Tab>
+</Tabs>
+
+## Quick Start with Docker
+
+The fastest way to deploy ChartDB is using the official Docker image:
+
+<Steps>
+  <Step title="Pull and Run">
+    Run ChartDB without AI features:
+    
+    ```bash
+    docker run -p 8080:80 ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    Or with OpenAI integration:
+    
+    ```bash
+    docker run -e OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> -p 8080:80 ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    <Warning>
+      Replace `<YOUR_OPEN_AI_KEY>` with your actual OpenAI API key.
+    </Warning>
+  </Step>
+  
+  <Step title="Access ChartDB">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost:8080
+    ```
+    
+    ChartDB is now running locally!
+  </Step>
+</Steps>
+
+## Building Docker Image Locally
+
+For custom deployments or development:
+
+<CodeGroup>
+```bash Basic Build
+# Clone the repository
+git clone https://github.com/chartdb/chartdb.git
+cd chartdb
+
+# Build the image
+docker build -t chartdb .
+
+# Run the container
+docker run -p 8080:80 chartdb
+```
+
+```bash With AI Support
+# Build with OpenAI API key
+docker build \
+  --build-arg VITE_OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> \
+  -t chartdb .
+
+# Run with API key
+docker run \
+  -e OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> \
+  -p 8080:80 \
+  chartdb
+```
+
+```bash Custom Inference Server
+# Build with custom LLM endpoint
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=<YOUR_ENDPOINT> \
+  --build-arg VITE_LLM_MODEL_NAME=<YOUR_MODEL_NAME> \
+  -t chartdb .
+
+# Run with custom configuration
+docker run \
+  -e OPENAI_API_ENDPOINT=<YOUR_ENDPOINT> \
+  -e LLM_MODEL_NAME=<YOUR_MODEL_NAME> \
+  -p 8080:80 \
+  chartdb
+```
+
+```bash Privacy-Focused
+# Build with analytics disabled
+docker build \
+  --build-arg VITE_DISABLE_ANALYTICS=true \
+  -t chartdb .
+
+# Run with analytics disabled
+docker run \
+  -e DISABLE_ANALYTICS=true \
+  -p 8080:80 \
+  chartdb
+```
+</CodeGroup>
+
+<Note>
+  **Important**: Configure either OpenAI API key OR custom endpoint/model, not both. Mixing the two options will cause conflicts.
+</Note>
+
+## Docker Configuration Options
+
+ChartDB's Docker image supports several build arguments and environment variables:
+
+### Build Arguments
+
+Used during `docker build`:
+
+| Argument | Description | Example |
+|----------|-------------|----------|
+| `VITE_OPENAI_API_KEY` | OpenAI API key for AI features | `sk-...` |
+| `VITE_OPENAI_API_ENDPOINT` | Custom OpenAI-compatible endpoint | `http://localhost:8000/v1` |
+| `VITE_LLM_MODEL_NAME` | Model name for custom inference | `Qwen/Qwen2.5-32B-Instruct-AWQ` |
+| `VITE_HIDE_CHARTDB_CLOUD` | Hide cloud-specific UI elements | `true` |
+| `VITE_DISABLE_ANALYTICS` | Disable Fathom Analytics | `true` |
+
+### Runtime Environment Variables
+
+Used with `docker run -e`:
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `OPENAI_API_ENDPOINT` | Custom endpoint | `http://localhost:8000/v1` |
+| `LLM_MODEL_NAME` | Model name | `Qwen/Qwen2.5-32B-Instruct-AWQ` |
+| `DISABLE_ANALYTICS` | Disable analytics | `true` |
+
+### Example: Local vLLM Server
+
+If you're running a local vLLM inference server:
+
+```bash
+# Build
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -t chartdb .
+
+# Run
+docker run \
+  -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 \
+  chartdb
+```
+
+## npm Installation
+
+For development or when you need to customize ChartDB:
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/chartdb/chartdb.git
+    cd chartdb
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    ```bash
+    npm install
+    ```
+    
+    This will install all required packages from `package.json`:
+    - React 18.3.1
+    - Vite for building
+    - TypeScript
+    - Various UI and database utilities
+  </Step>
+  
+  <Step title="Run Development Server">
+    ```bash
+    npm run dev
+    ```
+    
+    This starts Vite's development server with hot module replacement. The application will be available at `http://localhost:5173` (or another port if 5173 is in use).
+  </Step>
+</Steps>
+
+## Building for Production
+
+To create an optimized production build:
+
+<CodeGroup>
+```bash Basic Build
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+```
+
+```bash With AI Features
+# Build with OpenAI API key
+npm install
+VITE_OPENAI_API_KEY=<YOUR_OPEN_AI_KEY> npm run build
+```
+
+```bash Custom Configuration
+# Build with custom settings
+npm install
+VITE_OPENAI_API_ENDPOINT=<YOUR_ENDPOINT> \
+VITE_LLM_MODEL_NAME=<YOUR_MODEL_NAME> \
+npm run build
+```
+</CodeGroup>
+
+The build output will be in the `dist/` directory, ready to be served by any static file server.
+
+<Note>
+  The build process runs linting (`npm run lint`) and TypeScript compilation before creating the production bundle.
+</Note>
+
+## npm Scripts Reference
+
+ChartDB's `package.json` includes several useful scripts:
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `dev` | `npm run dev` | Start development server with HMR |
+| `build` | `npm run build` | Create production build (includes lint + TypeScript check) |
+| `lint` | `npm run lint` | Run ESLint on the codebase |
+| `lint:fix` | `npm run lint:fix` | Auto-fix linting issues |
+| `preview` | `npm run preview` | Preview production build locally |
+| `test` | `npm run test` | Run Vitest in watch mode |
+| `test:ci` | `npm run test:ci` | Run tests once for CI |
+| `test:ui` | `npm run test:ui` | Open Vitest UI |
+| `test:coverage` | `npm run test:coverage` | Generate test coverage report |
+
+## Development Workflow
+
+For active development:
+
+<Steps>
+  <Step title="Set Up Development Environment">
+    ```bash
+    # Install dependencies
+    npm install
+    
+    # Start dev server
+    npm run dev
+    ```
+  </Step>
+  
+  <Step title="Make Changes">
+    Edit files in the `src/` directory. The development server will automatically reload your changes.
+  </Step>
+  
+  <Step title="Run Tests">
+    ```bash
+    # Run tests in watch mode
+    npm run test
+    
+    # Or use the UI
+    npm run test:ui
+    ```
+  </Step>
+  
+  <Step title="Check Code Quality">
+    ```bash
+    # Run linter
+    npm run lint
+    
+    # Auto-fix issues
+    npm run lint:fix
+    ```
+  </Step>
+  
+  <Step title="Build and Preview">
+    ```bash
+    # Create production build
+    npm run build
+    
+    # Preview the build
+    npm run preview
+    ```
+  </Step>
+</Steps>
+
+## Technology Stack
+
+ChartDB is built with modern web technologies:
+
+<CardGroup cols={2}>
+  <Card title="Frontend Framework" icon="react">
+    React 18.3.1 with TypeScript for type-safe development
+  </Card>
+  
+  <Card title="Build Tool" icon="gauge-high">
+    Vite 7.2.7 for lightning-fast builds and HMR
+  </Card>
+  
+  <Card title="Database Parsing" icon="code">
+    node-sql-parser for SQL parsing and validation
+  </Card>
+  
+  <Card title="AI Integration" icon="brain">
+    Vercel AI SDK with OpenAI for schema migration
+  </Card>
+  
+  <Card title="Diagramming" icon="diagram-project">
+    @xyflow/react for interactive schema visualization
+  </Card>
+  
+  <Card title="UI Components" icon="palette">
+    Radix UI primitives with Tailwind CSS styling
+  </Card>
+</CardGroup>
+
+## Privacy and Analytics
+
+ChartDB includes privacy-focused analytics via Fathom Analytics. This helps us understand usage patterns without tracking individual users.
+
+### Disabling Analytics
+
+You can completely disable analytics in your deployment:
+
+<Tabs>
+  <Tab title="Docker">
+    ```bash
+    # Build time
+    docker build --build-arg VITE_DISABLE_ANALYTICS=true -t chartdb .
+    
+    # Runtime
+    docker run -e DISABLE_ANALYTICS=true -p 8080:80 chartdb
+    ```
+  </Tab>
+  
+  <Tab title="npm">
+    ```bash
+    # Set environment variable
+    VITE_DISABLE_ANALYTICS=true npm run build
+    ```
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Port 8080 is already in use">
+    Change the port mapping in the Docker command:
+    
+    ```bash
+    docker run -p 3000:80 ghcr.io/chartdb/chartdb:latest
+    ```
+    
+    Then access ChartDB at `http://localhost:3000`
+  </Accordion>
+  
+  <Accordion title="AI features not working">
+    Ensure you've provided either:
+    1. A valid OpenAI API key, OR
+    2. A custom endpoint and model name
+    
+    Check that the environment variables are correctly set and that you're not mixing the two configuration methods.
+  </Accordion>
+  
+  <Accordion title="Build fails with TypeScript errors">
+    Make sure you're using Node.js version 24 or higher:
+    
+    ```bash
+    node --version  # Should show v24.x.x or higher
+    ```
+    
+    Try cleaning and reinstalling dependencies:
+    
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Accordion>
+  
+  <Accordion title="Smart Query returns empty result">
+    This usually indicates permission issues. Ensure your database user has read access to:
+    - `information_schema` (MySQL, SQL Server)
+    - `pg_catalog` schemas (PostgreSQL)
+    - System tables (SQLite)
+  </Accordion>
+</AccordionGroup>
+
+## Supported Database Versions
+
+ChartDB supports the following database versions:
+
+| Database | Supported Versions | Special Editions |
+|----------|-------------------|------------------|
+| PostgreSQL | 9.0+ | Supabase, Timescale |
+| MySQL | 5.7, 8.0+ | - |
+| SQL Server | 2016+ | - |
+| MariaDB | 10.0+ | - |
+| SQLite | 3.0+ | Cloudflare D1 |
+| CockroachDB | Latest | - |
+| ClickHouse | Latest | - |
+
+<Note>
+  Different database editions (like Supabase for PostgreSQL or Cloudflare D1 for SQLite) use specialized Smart Queries that filter out system tables and schemas.
+</Note>
+
+## Contributing
+
+Want to contribute to ChartDB? We welcome contributions of all kinds!
+
+<Steps>
+  <Step title="Read the Guidelines">
+    Check out our [Contributing Guide](https://github.com/chartdb/chartdb/blob/main/CONTRIBUTING.md) for details on our development process.
+  </Step>
+  
+  <Step title="Fork and Clone">
+    ```bash
+    # Fork the repository on GitHub, then:
+    git clone https://github.com/YOUR_USERNAME/chartdb.git
+    cd chartdb
+    ```
+  </Step>
+  
+  <Step title="Create a Branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+    
+    Branch from `main` and focus on a single change.
+  </Step>
+  
+  <Step title="Develop and Test">
+    ```bash
+    npm install
+    npm run dev
+    npm run test
+    ```
+  </Step>
+  
+  <Step title="Submit Pull Request">
+    Push your changes and open a pull request on GitHub. Provide a clear description of what your changes do.
+  </Step>
+</Steps>
+
+## Community and Support
+
+<CardGroup cols={3}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/QeFwyWSKwC">
+    Join our community for live discussions and support
+  </Card>
+  
+  <Card title="GitHub Issues" icon="github" href="https://github.com/chartdb/chartdb/issues">
+    Report bugs and request features
+  </Card>
+  
+  <Card title="Email" icon="envelope" href="mailto:support@chartdb.io">
+    Contact us directly for help
+  </Card>
+</CardGroup>
+
+## License
+
+ChartDB is licensed under the [GNU Affero General Public License v3.0](https://github.com/chartdb/chartdb/blob/main/LICENSE).
+
+By contributing to ChartDB, you agree that your contributions will be licensed under the AGPL-3.0 license.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Learn how to use ChartDB to visualize your database
+  </Card>
+  
+  <Card title="GitHub Repository" icon="code-branch" href="https://github.com/chartdb/chartdb">
+    Explore the source code and contribute
+  </Card>
+</CardGroup>

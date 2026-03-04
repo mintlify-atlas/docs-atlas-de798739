@@ -1,0 +1,397 @@
+---
+title: 'Index'
+description: 'Database indexes for query optimization and constraints'
+---
+
+## Overview
+
+The `DBIndex` interface represents a database index that improves query performance and enforces uniqueness constraints.
+
+## Interface Definition
+
+```typescript
+interface DBIndex {
+    id: string;
+    name: string;
+    unique: boolean;
+    fieldIds: string[];
+    createdAt: number;
+    type?: IndexType | null;
+    isPrimaryKey?: boolean | null;
+}
+
+type IndexType = 
+    | 'btree'
+    | 'hash'
+    | 'gist'
+    | 'gin'
+    | 'spgist'
+    | 'brin'
+    | 'nonclustered'
+    | 'clustered'
+    | 'xml'
+    | 'fulltext'
+    | 'spatial'
+    | 'index';
+```
+
+## Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the index
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Index name (e.g., `'idx_users_email'`, `'users_pkey'`)
+  
+  For primary key indexes created from composite primary keys, an empty name (`''`) indicates no named CONSTRAINT should be used.
+</ParamField>
+
+<ParamField path="unique" type="boolean" required>
+  Whether this is a unique index. Primary key indexes are always unique.
+</ParamField>
+
+<ParamField path="fieldIds" type="string[]" required>
+  Array of field IDs that make up the index. Order matters for composite indexes.
+  
+  - Single-column index: `['field_id']`
+  - Composite index: `['field_last_name', 'field_first_name']`
+</ParamField>
+
+<ParamField path="createdAt" type="number" required>
+  Timestamp when the index was created (milliseconds since epoch)
+</ParamField>
+
+<ParamField path="type" type="IndexType | null">
+  Index type/method. Support varies by database.
+  
+  **PostgreSQL/CockroachDB:**
+  - `'btree'`: B-tree index (default)
+  - `'hash'`: Hash index
+  - `'gin'`: Generalized Inverted Index (for arrays, JSONB, full-text)
+  - `'gist'`: Generalized Search Tree
+  - `'spgist'`: Space-partitioned GiST
+  - `'brin'`: Block Range Index
+  
+  **SQL Server:**
+  - `'clustered'`: Clustered index
+  - `'nonclustered'`: Non-clustered index
+  - `'xml'`: XML index
+  - `'fulltext'`: Full-text index
+  - `'spatial'`: Spatial index
+  
+  **MySQL/MariaDB:**
+  - `'btree'`: B-tree (default)
+  - `'hash'`: Hash index
+  - `'fulltext'`: Full-text index
+  - `'spatial'`: Spatial index
+</ParamField>
+
+<ParamField path="isPrimaryKey" type="boolean | null">
+  Whether this index represents a primary key constraint. Used for composite primary keys.
+</ParamField>
+
+## Zod Schema
+
+```typescript
+const dbIndexSchema: z.ZodType<DBIndex> = z.object({
+    id: z.string(),
+    name: z.string(),
+    unique: z.boolean(),
+    fieldIds: z.array(z.string()),
+    createdAt: z.number(),
+    type: z.enum(INDEX_TYPES).optional(),
+    isPrimaryKey: z.boolean().or(z.null()).optional(),
+});
+```
+
+## Index Type Constants
+
+```typescript
+const INDEX_TYPES = [
+    'btree',
+    'hash',
+    'gist',
+    'gin',
+    'spgist',
+    'brin',
+    'nonclustered',
+    'clustered',
+    'xml',
+    'fulltext',
+    'spatial',
+    'hash',
+    'index',
+] as const;
+```
+
+## Database-Specific Index Types
+
+```typescript
+const databaseIndexTypes: Record<DatabaseType, IndexType[] | undefined> = {
+    [DatabaseType.POSTGRESQL]: ['btree', 'hash', 'gin'],
+    [DatabaseType.COCKROACHDB]: ['btree', 'hash', 'gin'],
+    [DatabaseType.MYSQL]: undefined,
+    [DatabaseType.MARIADB]: undefined,
+    [DatabaseType.SQL_SERVER]: undefined,
+    [DatabaseType.SQLITE]: undefined,
+    [DatabaseType.CLICKHOUSE]: undefined,
+    [DatabaseType.ORACLE]: undefined,
+    [DatabaseType.GENERIC]: undefined,
+};
+
+const defaultIndexTypeForDatabase: Record<DatabaseType, IndexType | undefined> = {
+    [DatabaseType.POSTGRESQL]: 'btree',
+    [DatabaseType.COCKROACHDB]: 'btree',
+    // ... others undefined
+};
+```
+
+## Helper Functions
+
+### supportsGinIndex
+
+Checks if a field supports GIN indexing (PostgreSQL/CockroachDB):
+
+```typescript
+const GIN_SUPPORTED_TYPES = ['jsonb', 'json', 'tsvector', 'hstore'] as const;
+
+const supportsGinIndex = (field: DBField): boolean => {
+    if (field.isArray) return true;
+    const typeLower = field.type.id.toLowerCase();
+    return GIN_SUPPORTED_TYPES.includes(typeLower);
+};
+```
+
+### canFieldsUseGinIndex
+
+Checks if all fields in an index can use GIN:
+
+```typescript
+const canFieldsUseGinIndex = (fields: DBField[]): boolean => {
+    return fields.length > 0 && fields.every(supportsGinIndex);
+};
+```
+
+### getTablePrimaryKeyIndex
+
+Gets or creates the primary key index for a table:
+
+```typescript
+const getTablePrimaryKeyIndex = ({ table }: { table: DBTable }): DBIndex | null => {
+    const primaryKeyFields = table.fields.filter((f) => f.primaryKey);
+    const existingPKIndex = table.indexes.find((idx) => idx.isPrimaryKey);
+    
+    if (primaryKeyFields.length === 0) {
+        return null;
+    }
+    
+    const pkFieldIds = primaryKeyFields.map((f) => f.id);
+    
+    if (existingPKIndex) {
+        return {
+            ...existingPKIndex,
+            fieldIds: pkFieldIds,
+        };
+    } else {
+        // Create new PK index
+        // Use empty name for auto-generated PK indexes
+        return {
+            id: generateId(),
+            name: '',
+            fieldIds: pkFieldIds,
+            unique: true,
+            isPrimaryKey: true,
+            createdAt: Date.now(),
+        };
+    }
+};
+```
+
+### getTableIndexesWithPrimaryKey
+
+Gets all indexes including the primary key:
+
+```typescript
+const getTableIndexesWithPrimaryKey = ({ table }: { table: DBTable }): DBIndex[] => {
+    const primaryKeyIndex = getTablePrimaryKeyIndex({ table });
+    const indexesWithoutPKIndex = table.indexes.filter((idx) => !idx.isPrimaryKey);
+    
+    return primaryKeyIndex
+        ? [primaryKeyIndex, ...indexesWithoutPKIndex]
+        : indexesWithoutPKIndex;
+};
+```
+
+## Examples
+
+### Single-Column Index
+
+```typescript
+const emailIndex: DBIndex = {
+    id: 'idx_1',
+    name: 'idx_users_email',
+    unique: true,
+    fieldIds: ['field_email'],
+    createdAt: Date.now()
+};
+
+// SQL: CREATE UNIQUE INDEX idx_users_email ON users(email);
+```
+
+### Composite Index
+
+```typescript
+const nameIndex: DBIndex = {
+    id: 'idx_2',
+    name: 'idx_users_last_first_name',
+    unique: false,
+    fieldIds: ['field_last_name', 'field_first_name'],
+    createdAt: Date.now()
+};
+
+// SQL: CREATE INDEX idx_users_last_first_name ON users(last_name, first_name);
+```
+
+### Primary Key Index (Composite)
+
+```typescript
+const compositePKIndex: DBIndex = {
+    id: 'idx_pk',
+    name: 'order_items_pkey',
+    unique: true,
+    fieldIds: ['field_order_id', 'field_product_id'],
+    isPrimaryKey: true,
+    createdAt: Date.now()
+};
+
+// SQL: PRIMARY KEY (order_id, product_id)
+```
+
+### GIN Index for JSONB (PostgreSQL)
+
+```typescript
+const jsonIndex: DBIndex = {
+    id: 'idx_3',
+    name: 'idx_products_metadata',
+    unique: false,
+    fieldIds: ['field_metadata'],
+    type: 'gin',
+    createdAt: Date.now()
+};
+
+// SQL: CREATE INDEX idx_products_metadata ON products USING GIN (metadata);
+```
+
+### GIN Index for Array (PostgreSQL)
+
+```typescript
+const arrayIndex: DBIndex = {
+    id: 'idx_4',
+    name: 'idx_posts_tags',
+    unique: false,
+    fieldIds: ['field_tags'],  // tags is text[]
+    type: 'gin',
+    createdAt: Date.now()
+};
+
+// SQL: CREATE INDEX idx_posts_tags ON posts USING GIN (tags);
+```
+
+### Full-Text Index (MySQL)
+
+```typescript
+const fulltextIndex: DBIndex = {
+    id: 'idx_5',
+    name: 'idx_articles_content',
+    unique: false,
+    fieldIds: ['field_title', 'field_body'],
+    type: 'fulltext',
+    createdAt: Date.now()
+};
+
+// SQL: CREATE FULLTEXT INDEX idx_articles_content ON articles(title, body);
+```
+
+## Index Types by Database
+
+### PostgreSQL / CockroachDB
+
+<ParamField path="btree" type="IndexType">
+  Default index type. Efficient for equality and range queries.
+  
+  ```sql
+  CREATE INDEX idx_name ON table(column);
+  CREATE INDEX idx_name ON table USING btree(column);
+  ```
+</ParamField>
+
+<ParamField path="hash" type="IndexType">
+  Optimized for equality comparisons only.
+  
+  ```sql
+  CREATE INDEX idx_name ON table USING hash(column);
+  ```
+</ParamField>
+
+<ParamField path="gin" type="IndexType">
+  For indexing composite values (arrays, JSONB, full-text).
+  
+  ```sql
+  CREATE INDEX idx_name ON table USING gin(jsonb_column);
+  CREATE INDEX idx_name ON table USING gin(array_column);
+  ```
+</ParamField>
+
+### SQL Server
+
+<ParamField path="clustered" type="IndexType">
+  Clustered index (only one per table). Determines physical order.
+  
+  ```sql
+  CREATE CLUSTERED INDEX idx_name ON table(column);
+  ```
+</ParamField>
+
+<ParamField path="nonclustered" type="IndexType">
+  Non-clustered index (multiple allowed per table).
+  
+  ```sql
+  CREATE NONCLUSTERED INDEX idx_name ON table(column);
+  ```
+</ParamField>
+
+## Index Configuration
+
+```typescript
+interface IndexTypeConfig {
+    label: string;
+    value: IndexType;
+    disabledTooltip?: string;
+}
+
+const INDEX_TYPE_CONFIGS: IndexTypeConfig[] = [
+    { label: 'B-tree (default)', value: 'btree' },
+    { label: 'Hash', value: 'hash' },
+    {
+        label: 'GIN',
+        value: 'gin',
+        disabledTooltip: 'GIN indexes require array, jsonb, json, tsvector, or hstore types',
+    },
+];
+```
+
+## Best Practices
+
+1. **Primary Keys**: Always indexed automatically
+2. **Foreign Keys**: Consider indexing for join performance
+3. **Unique Constraints**: Automatically create unique indexes
+4. **Composite Indexes**: Column order matters (most selective first)
+5. **GIN Indexes**: Use for arrays, JSONB, and full-text search
+6. **Over-Indexing**: Avoid excessive indexes (slows writes)
+
+## Related Types
+
+- [Table](/api/table)
+- [Field](/api/field)
+- [Database Types](/api/database-types)

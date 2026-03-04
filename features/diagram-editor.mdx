@@ -1,0 +1,713 @@
+---
+title: 'Diagram Editor'
+description: 'Interactive canvas for editing and visualizing database schemas'
+icon: 'pen-ruler'
+---
+
+The ChartDB diagram editor provides a powerful, interactive canvas for creating and editing database diagrams. Built on ReactFlow, it offers a modern, intuitive interface for database schema design.
+
+## Canvas Overview
+
+The editor canvas is the heart of ChartDB, providing real-time visual editing of your database schema.
+
+<CardGroup cols={2}>
+  <Card title="Drag & Drop" icon="hand-pointer">
+    Move tables and organize your layout
+  </Card>
+  <Card title="Visual Relationships" icon="link">
+    See connections between tables in real-time
+  </Card>
+  <Card title="Inline Editing" icon="pen">
+    Edit tables, fields, and relationships directly on canvas
+  </Card>
+  <Card title="Multi-Select" icon="object-group">
+    Select and manipulate multiple tables at once
+  </Card>
+</CardGroup>
+
+## Node Types
+
+The canvas supports multiple node types for different diagram elements:
+
+```typescript
+export type NodeType =
+    | TableNodeType
+    | AreaNodeType
+    | NoteNodeType
+    | TempCursorNodeType
+    | CreateRelationshipNodeType;
+
+const nodeTypes: NodeTypes = {
+    table: TableNode,
+    area: AreaNode,
+    note: NoteNode,
+    'temp-cursor': TempCursorNode,
+    'create-relationship': CreateRelationshipNode,
+};
+```
+
+### Table Nodes
+
+Table nodes are the primary elements representing database tables:
+
+<Tabs>
+  <Tab title="Structure">
+    Each table node displays:
+    - Table name and schema
+    - Column list with types
+    - Primary key indicators
+    - Foreign key badges
+    - Index information
+    - Relationship handles
+  </Tab>
+
+  <Tab title="Visual Indicators">
+    ```typescript
+    // Primary key fields
+    🔑 Primary key icon
+    
+    // Foreign key fields  
+    🔗 Foreign key badge
+    
+    // Unique constraints
+    ⚡ Unique indicator
+    
+    // Not null
+    Bold field names
+    
+    // Array types (PostgreSQL)
+    [] Array brackets
+    ```
+  </Tab>
+
+  <Tab title="Editing Mode">
+    Double-click a table to enter edit mode:
+    - Add/remove fields
+    - Change data types
+    - Set constraints
+    - Add indexes
+    - Edit table properties
+  </Tab>
+</Tabs>
+
+### Area Nodes
+
+Group related tables together using area nodes:
+
+```typescript
+interface Area {
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: string;
+}
+```
+
+Areas provide visual organization and can contain multiple tables.
+
+### Note Nodes
+
+Add documentation directly to your diagram:
+
+```typescript
+interface Note {
+    id: string;
+    content: string;
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+}
+```
+
+## Edge Types
+
+The canvas supports multiple edge types for different relationships:
+
+```typescript
+export type EdgeType =
+    | RelationshipEdgeType
+    | DependencyEdgeType
+    | TempFloatingEdgeType;
+
+const edgeTypes: EdgeTypes = {
+    'relationship-edge': RelationshipEdge,
+    'dependency-edge': DependencyEdge,
+    'temp-floating-edge': TempFloatingEdge,
+};
+```
+
+### Relationship Edges
+
+Visual representation of foreign key relationships:
+
+<AccordionGroup>
+  <Accordion title="Cardinality Indicators">
+    Relationships show cardinality at both ends:
+    - **One**: Single line endpoint
+    - **Many**: Crow's foot endpoint
+    - One-to-Many
+    - Many-to-One
+    - One-to-One
+    - Many-to-Many
+  </Accordion>
+
+  <Accordion title="Relationship Labels">
+    Edges display:
+    - Constraint name
+    - Source/target fields
+    - Cardinality symbols
+  </Accordion>
+
+  <Accordion title="Interactive Editing">
+    Click a relationship edge to:
+    - Change cardinality
+    - Edit constraint name
+    - Delete relationship
+    - View relationship details
+  </Accordion>
+</AccordionGroup>
+
+### Dependency Edges
+
+For view dependencies and table relationships:
+
+```typescript
+interface Dependency {
+    id: string;
+    tableId: string;
+    dependentTableId: string;
+    createdAt: number;
+}
+```
+
+Views show dashed dependency lines to their source tables.
+
+## Canvas Controls
+
+### Background and Grid
+
+The canvas includes a customizable background:
+
+```typescript
+<Background 
+    variant={BackgroundVariant.Dots} 
+    gap={12} 
+    size={1} 
+/>
+```
+
+### MiniMap
+
+Navigate large diagrams with the minimap:
+
+```typescript
+<MiniMap
+    nodeStrokeWidth={3}
+    zoomable
+    pannable
+/>
+```
+
+### Zoom Controls
+
+Built-in zoom and pan controls:
+
+```typescript
+<Controls
+    showZoom
+    showFitView
+    showInteractive
+/>
+```
+
+## Table Editing
+
+### Field Management
+
+Edit fields directly in table edit mode:
+
+<CodeGroup>
+
+```typescript Add Field
+const addField = () => {
+    const newField: DBField = {
+        id: generateId(),
+        name: 'new_field',
+        type: { id: 'varchar', name: 'varchar' },
+        nullable: true,
+        primaryKey: false,
+        unique: false,
+        createdAt: Date.now(),
+    };
+    
+    updateTable({
+        ...table,
+        fields: [...table.fields, newField],
+    });
+};
+```
+
+```typescript Edit Field Type
+const updateFieldType = (fieldId: string, newType: DataType) => {
+    updateTable({
+        ...table,
+        fields: table.fields.map(f =>
+            f.id === fieldId ? { ...f, type: newType } : f
+        ),
+    });
+};
+```
+
+```typescript Delete Field
+const deleteField = (fieldId: string) => {
+    updateTable({
+        ...table,
+        fields: table.fields.filter(f => f.id !== fieldId),
+    });
+};
+```
+
+</CodeGroup>
+
+### Constraints
+
+Set field constraints in edit mode:
+
+<Tabs>
+  <Tab title="Primary Key">
+    ```typescript
+    field.primaryKey = true;
+    field.nullable = false; // PKs are automatically NOT NULL
+    ```
+  </Tab>
+
+  <Tab title="Unique">
+    ```typescript
+    field.unique = true;
+    ```
+  </Tab>
+
+  <Tab title="Not Null">
+    ```typescript
+    field.nullable = false;
+    ```
+  </Tab>
+
+  <Tab title="Auto Increment">
+    ```typescript
+    field.increment = true;
+    ```
+  </Tab>
+
+  <Tab title="Default Value">
+    ```typescript
+    field.default = 'default_value';
+    ```
+  </Tab>
+</Tabs>
+
+### Data Types
+
+ChartDB supports all major database data types:
+
+```typescript
+interface DataType {
+    id: string;
+    name: string;
+    fieldAttributes?: {
+        characterMaximumLength?: boolean;
+        precision?: boolean;
+        scale?: boolean;
+    };
+}
+```
+
+Common types include:
+- Numeric: `INT`, `BIGINT`, `DECIMAL`, `NUMERIC`
+- String: `VARCHAR`, `TEXT`, `CHAR`
+- Date/Time: `TIMESTAMP`, `DATE`, `TIME`
+- Boolean: `BOOLEAN`
+- JSON: `JSON`, `JSONB`
+- Arrays: `TEXT[]`, `INT[]` (PostgreSQL)
+- Binary: `BYTEA`, `BLOB`
+
+## Creating Relationships
+
+### Visual Relationship Creation
+
+Create relationships by connecting table fields:
+
+<Steps>
+  <Step title="Enter Relationship Mode">
+    Click the "Add Relationship" button or press `R`
+  </Step>
+  
+  <Step title="Select Source Field">
+    Click on the source field in the first table
+  </Step>
+  
+  <Step title="Select Target Field">
+    Click on the target field in the second table
+  </Step>
+  
+  <Step title="Configure Relationship">
+    Set cardinality and constraint name:
+    
+    ```typescript
+    const relationship: DBRelationship = {
+        id: generateId(),
+        name: `fk_${sourceTable.name}_${sourceField.name}`,
+        sourceTableId: sourceTable.id,
+        targetTableId: targetTable.id,
+        sourceFieldId: sourceField.id,
+        targetFieldId: targetField.id,
+        sourceCardinality: 'many',
+        targetCardinality: 'one',
+        createdAt: Date.now(),
+    };
+    ```
+  </Step>
+</Steps>
+
+### Relationship Validation
+
+ChartDB validates relationships in real-time:
+
+```typescript
+const areFieldTypesCompatible = (
+    sourceType: DataType,
+    targetType: DataType
+): boolean => {
+    // Check if field types are compatible for FK relationship
+    return sourceType.id === targetType.id;
+};
+```
+
+<Warning>
+Foreign key fields must have compatible data types. ChartDB will warn you if types don't match.
+</Warning>
+
+## Table Context Menu
+
+Right-click any table to access quick actions:
+
+```typescript
+interface TableContextMenuActions {
+    edit: () => void;
+    duplicate: () => void;
+    delete: () => void;
+    addField: () => void;
+    exportSQL: () => void;
+    changeColor: (color: string) => void;
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Edit Table">
+    Opens the table in edit mode
+  </Accordion>
+  
+  <Accordion title="Duplicate">
+    Creates a copy of the table with all fields
+  </Accordion>
+  
+  <Accordion title="Delete">
+    Removes table and all associated relationships
+  </Accordion>
+  
+  <Accordion title="Add Field">
+    Quickly add a new field to the table
+  </Accordion>
+  
+  <Accordion title="Change Color">
+    Set a custom color for visual organization
+  </Accordion>
+</AccordionGroup>
+
+## Canvas Navigation
+
+### Keyboard Shortcuts
+
+<Tabs>
+  <Tab title="Selection">
+    - `Cmd/Ctrl + A` - Select all tables
+    - `Cmd/Ctrl + Click` - Multi-select tables
+    - `Shift + Drag` - Box selection
+  </Tab>
+
+  <Tab title="Editing">
+    - `Delete` - Delete selected items
+    - `Cmd/Ctrl + C` - Copy selected tables
+    - `Cmd/Ctrl + V` - Paste tables
+    - `Cmd/Ctrl + Z` - Undo
+    - `Cmd/Ctrl + Shift + Z` - Redo
+  </Tab>
+
+  <Tab title="Navigation">
+    - `Space + Drag` - Pan canvas
+    - `Mouse Wheel` - Zoom in/out
+    - `Cmd/Ctrl + 0` - Fit view
+    - `Cmd/Ctrl + +/-` - Zoom in/out
+  </Tab>
+
+  <Tab title="Tools">
+    - `R` - Create relationship
+    - `T` - Add table
+    - `N` - Add note
+    - `A` - Add area
+    - `Esc` - Cancel current action
+  </Tab>
+</Tabs>
+
+### Mouse Controls
+
+- **Left Click**: Select/deselect
+- **Double Click**: Edit table
+- **Right Click**: Context menu
+- **Drag**: Move selected items
+- **Scroll**: Zoom in/out
+
+## Layout Management
+
+### Auto Layout
+
+ChartDB provides automatic table positioning:
+
+```typescript
+const adjustedTables = adjustTablePositions({
+    tables,
+    relationships,
+    mode: 'perSchema', // or 'single'
+});
+```
+
+Layout modes:
+- `perSchema`: Groups tables by schema
+- `single`: All tables in one group
+
+### Manual Positioning
+
+Drag tables to arrange them manually:
+
+```typescript
+const onNodesChange: OnNodesChange = useCallback((changes) => {
+    changes.forEach(change => {
+        if (change.type === 'position' && change.position) {
+            updateTablePosition(change.id, change.position);
+        }
+    });
+}, []);
+```
+
+### Alignment Tools
+
+Align multiple selected tables:
+- Align left
+- Align right  
+- Align top
+- Align bottom
+- Distribute horizontally
+- Distribute vertically
+
+## Table Filtering
+
+Filter tables on the canvas by various criteria:
+
+```typescript
+interface DiagramFilter {
+    schemas?: string[];
+    tables?: string[];
+    searchTerm?: string;
+    showViews?: boolean;
+}
+
+const filterTable = (
+    table: DBTable,
+    filter: DiagramFilter
+): boolean => {
+    if (filter.schemas && !filter.schemas.includes(table.schema)) {
+        return false;
+    }
+    
+    if (filter.searchTerm) {
+        const term = filter.searchTerm.toLowerCase();
+        return table.name.toLowerCase().includes(term);
+    }
+    
+    if (!filter.showViews && table.isView) {
+        return false;
+    }
+    
+    return true;
+};
+```
+
+### Canvas Filter Panel
+
+The filter panel allows you to:
+
+<CardGroup cols={2}>
+  <Card title="Filter by Schema" icon="folder">
+    Show/hide specific schemas
+  </Card>
+  <Card title="Search Tables" icon="search">
+    Find tables by name
+  </Card>
+  <Card title="Toggle Views" icon="eye">
+    Show or hide database views
+  </Card>
+  <Card title="Filter Relationships" icon="link">
+    Show only related tables
+  </Card>
+</CardGroup>
+
+## Visual Customization
+
+### Table Colors
+
+Customize table appearance:
+
+```typescript
+const defaultTableColor = '#3b82f6';
+
+const updateTableColor = (tableId: string, color: string) => {
+    updateTable({
+        ...table,
+        color,
+    });
+};
+```
+
+### Theme Support
+
+ChartDB supports light and dark themes:
+
+```typescript
+const { theme } = useTheme();
+
+// Canvas adapts to theme
+const canvasStyle = {
+    background: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+};
+```
+
+## Advanced Features
+
+### Overlap Detection
+
+ChartDB detects and highlights overlapping tables:
+
+```typescript
+const findOverlappingTables = (
+    tables: DBTable[],
+    currentTable: DBTable
+): DBTable[] => {
+    return tables.filter(t => {
+        if (t.id === currentTable.id) return false;
+        
+        const overlap = 
+            currentTable.x < t.x + t.width &&
+            currentTable.x + currentTable.width > t.x &&
+            currentTable.y < t.y + t.height &&
+            currentTable.y + currentTable.height > t.y;
+            
+        return overlap;
+    });
+};
+```
+
+### Dynamic Table Sizing
+
+Tables automatically resize based on content:
+
+```typescript
+const calcTableHeight = (table: DBTable): number => {
+    const headerHeight = 40;
+    const fieldHeight = 32;
+    const padding = 8;
+    
+    return headerHeight + 
+           (table.fields.length * fieldHeight) + 
+           padding;
+};
+
+const MIN_TABLE_SIZE = { width: 200, height: 100 };
+```
+
+### Lost in Canvas Detection
+
+Warning when you're far from visible tables:
+
+```typescript
+const useIsLostInCanvas = () => {
+    const { getViewport } = useReactFlow();
+    const { tables } = useChartDB();
+    
+    // Detect if viewport is far from any tables
+    const isLost = useMemo(() => {
+        const { x, y, zoom } = getViewport();
+        // Calculate distance from nearest table
+        return distanceFromNearestTable > threshold;
+    }, [viewport, tables]);
+    
+    return isLost;
+};
+```
+
+## Performance Optimization
+
+The canvas is optimized for large diagrams:
+
+<AccordionGroup>
+  <Accordion title="Virtualization">
+    Only visible nodes and edges are rendered
+  </Accordion>
+  
+  <Accordion title="Debounced Updates">
+    Position updates are debounced to reduce re-renders:
+    
+    ```typescript
+    const debouncedUpdate = debounce((position) => {
+        updateTablePosition(position);
+    }, 100);
+    ```
+  </Accordion>
+  
+  <Accordion title="Memoization">
+    Expensive calculations are memoized:
+    
+    ```typescript
+    const visibleTables = useMemo(() => {
+        return tables.filter(t => filterTable(t, filter));
+    }, [tables, filter]);
+    ```
+  </Accordion>
+  
+  <Accordion title="Edge Optimization">
+    Edges are only recalculated when tables move
+  </Accordion>
+</AccordionGroup>
+
+## Accessibility
+
+The editor includes keyboard navigation and screen reader support:
+
+- All actions accessible via keyboard
+- Focus management for modals and panels
+- ARIA labels for all interactive elements
+- High contrast mode support
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Export Options" icon="file-export" href="/features/export-options">
+    Export your diagram to various formats
+  </Card>
+  <Card title="AI Migration" icon="wand-magic-sparkles" href="/features/ai-migration">
+    Use AI to migrate between databases
+  </Card>
+</CardGroup>

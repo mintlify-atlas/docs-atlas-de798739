@@ -1,0 +1,163 @@
+---
+title: 'Diagram'
+description: 'Core diagram interface representing a database schema visualization'
+---
+
+## Overview
+
+The `Diagram` interface is the central data structure in ChartDB, representing a complete database schema with tables, relationships, custom types, and metadata.
+
+## Interface Definition
+
+```typescript
+interface Diagram {
+    id: string;
+    name: string;
+    databaseType: DatabaseType;
+    databaseEdition?: DatabaseEdition;
+    tables?: DBTable[];
+    relationships?: DBRelationship[];
+    dependencies?: DBDependency[];
+    areas?: Area[];
+    customTypes?: DBCustomType[];
+    notes?: Note[];
+    createdAt: Date;
+    updatedAt: Date;
+}
+```
+
+## Properties
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the diagram
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Display name of the diagram
+</ParamField>
+
+<ParamField path="databaseType" type="DatabaseType" required>
+  The target database type. See [Database Types](/api/database-types) for available options.
+</ParamField>
+
+<ParamField path="databaseEdition" type="DatabaseEdition">
+  Specific database edition or variant (e.g., Supabase for PostgreSQL, Cloudflare D1 for SQLite)
+  
+  Available editions:
+  - PostgreSQL: `POSTGRESQL_SUPABASE`, `POSTGRESQL_TIMESCALE`
+  - MySQL: `MYSQL_5_7`
+  - SQL Server: `SQL_SERVER_2016_AND_BELOW`
+  - SQLite: `SQLITE_CLOUDFLARE_D1`
+</ParamField>
+
+<ParamField path="tables" type="DBTable[]">
+  Array of database tables in the diagram. See [Table](/api/table) for details.
+</ParamField>
+
+<ParamField path="relationships" type="DBRelationship[]">
+  Array of relationships (foreign keys) between tables. See [Relationship](/api/relationship) for details.
+</ParamField>
+
+<ParamField path="dependencies" type="DBDependency[]">
+  Array of view dependencies representing relationships between views and tables/views
+</ParamField>
+
+<ParamField path="areas" type="Area[]">
+  Array of visual grouping areas for organizing tables on the canvas
+  
+  Each area has:
+  - `id`: Unique identifier
+  - `name`: Display name
+  - `x`, `y`: Position coordinates
+  - `width`, `height`: Dimensions
+  - `color`: Visual color
+</ParamField>
+
+<ParamField path="customTypes" type="DBCustomType[]">
+  Array of custom database types (enums, composite types). Available for PostgreSQL and CockroachDB.
+  
+  Each custom type includes:
+  - `id`: Unique identifier
+  - `name`: Type name
+  - `schema`: Database schema
+  - `kind`: `'enum'` or `'composite'`
+  - `values`: Array of enum values (for enums)
+  - `fields`: Array of field definitions (for composite types)
+</ParamField>
+
+<ParamField path="notes" type="Note[]">
+  Array of standalone notes/annotations in the diagram
+</ParamField>
+
+<ParamField path="createdAt" type="Date" required>
+  Timestamp when the diagram was created
+</ParamField>
+
+<ParamField path="updatedAt" type="Date" required>
+  Timestamp when the diagram was last modified
+</ParamField>
+
+## Zod Schema
+
+```typescript
+const diagramSchema: z.ZodType<Diagram> = z.object({
+    id: z.string(),
+    name: z.string(),
+    databaseType: z.nativeEnum(DatabaseType),
+    databaseEdition: z.nativeEnum(DatabaseEdition).optional(),
+    tables: z.array(dbTableSchema).optional(),
+    relationships: z.array(dbRelationshipSchema).optional(),
+    dependencies: z.array(dbDependencySchema).optional(),
+    areas: z.array(areaSchema).optional(),
+    customTypes: z.array(dbCustomTypeSchema).optional(),
+    notes: z.array(noteSchema).optional(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+});
+```
+
+## Example
+
+```typescript
+const diagram: Diagram = {
+    id: 'diagram_abc123',
+    name: 'E-commerce Database',
+    databaseType: DatabaseType.POSTGRESQL,
+    databaseEdition: DatabaseEdition.POSTGRESQL_SUPABASE,
+    tables: [
+        {
+            id: 'table_1',
+            name: 'users',
+            schema: 'public',
+            x: 100,
+            y: 100,
+            fields: [
+                {
+                    id: 'field_1',
+                    name: 'id',
+                    type: { id: 'uuid', name: 'uuid' },
+                    primaryKey: true,
+                    nullable: false,
+                    unique: true,
+                    createdAt: Date.now()
+                }
+            ],
+            indexes: [],
+            color: '#3b82f6',
+            isView: false,
+            createdAt: Date.now()
+        }
+    ],
+    relationships: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+};
+```
+
+## Related Types
+
+- [Database Types](/api/database-types)
+- [Table](/api/table)
+- [Relationship](/api/relationship)
+- [Field](/api/field)
+- [Index](/api/index)

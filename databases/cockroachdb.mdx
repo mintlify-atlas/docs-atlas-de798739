@@ -1,0 +1,449 @@
+---
+title: 'CockroachDB'
+description: 'Import and export CockroachDB distributed database schemas with PostgreSQL compatibility'
+icon: 'database'
+---
+
+ChartDB provides full support for CockroachDB, the distributed SQL database that is PostgreSQL-compatible.
+
+## Overview
+
+CockroachDB is a distributed, resilient SQL database that:
+- Uses PostgreSQL wire protocol
+- Supports most PostgreSQL syntax
+- Provides distributed transactions
+- Offers horizontal scalability
+- Ensures high availability
+
+ChartDB leverages CockroachDB's PostgreSQL compatibility while handling CockroachDB-specific features.
+
+## Smart Query Import
+
+The CockroachDB Smart Query is based on the PostgreSQL query with filters for CockroachDB system schemas.
+
+### CockroachDB Query
+
+```sql
+/* CockroachDB - PostgreSQL edition */
+WITH fk_info AS (
+    SELECT array_to_string(array_agg(CONCAT('{"schema":"', replace(schema_name::TEXT, '"', ''), '"',
+                                            ',"table":"', replace(table_name::TEXT, '"', ''), '"',
+                                            ',"column":"', replace(fk_column::TEXT, '"', ''), '"',
+                                            ',"foreign_key_name":"', foreign_key_name::TEXT, '"',
+                                            ',"reference_schema":"', COALESCE(replace(reference_schema::TEXT, '"', ''), 'public'), '"',
+                                            ',"reference_table":"', replace(reference_table::TEXT, '"', ''), '"',
+                                            ',"reference_column":"', replace(reference_column::TEXT, '"', ''), '"',
+                                            ',"fk_def":"', replace(fk_def::TEXT, '"', ''),
+                                            '"}')), ',') as fk_metadata
+    FROM (
+            SELECT c.conname AS foreign_key_name,
+                    n.nspname AS schema_name,
+                    CASE
+                        WHEN position('.' in conrelid::regclass::text) > 0
+                        THEN split_part(conrelid::regclass::text, '.', 2)
+                        ELSE conrelid::regclass::text
+                    END AS table_name,
+                    a.attname AS fk_column,
+                    nr.nspname AS reference_schema,
+                    CASE
+                        WHEN position('.' in confrelid::regclass::text) > 0
+                        THEN split_part(confrelid::regclass::text, '.', 2)
+                        ELSE confrelid::regclass::text
+                    END AS reference_table,
+                    af.attname AS reference_column,
+                    pg_get_constraintdef(c.oid) as fk_def
+                FROM
+                    pg_constraint AS c
+                JOIN
+                    pg_attribute AS a ON a.attnum = ANY(c.conkey) AND a.attrelid = c.conrelid
+                JOIN
+                    pg_class AS cl ON cl.oid = c.conrelid
+                JOIN
+                    pg_namespace AS n ON n.oid = cl.relnamespace
+                JOIN
+                    pg_attribute AS af ON af.attnum = ANY(c.confkey) AND af.attrelid = c.confrelid
+                JOIN
+                    pg_class AS clf ON clf.oid = c.confrelid
+                JOIN
+                    pg_namespace AS nr ON nr.oid = clf.relnamespace
+                WHERE
+                    c.contype = 'f'
+                    AND connamespace::regnamespace::text NOT IN ('information_schema', 'pg_catalog')
+                    AND connamespace::regnamespace::text NOT IN ('pg_extension', 'crdb_internal')
+    ) AS x
+),
+cols AS (
+    SELECT array_to_string(array_agg(CONCAT('{"schema":"', cols.table_schema::TEXT,
+                                            '","table":"', cols.table_name::TEXT,
+                                            '","name":"', cols.column_name::TEXT,
+                                            '","ordinal_position":', cols.ordinal_position::TEXT,
+                                            ',"type":"', LOWER(replace(cols.data_type::TEXT, '"', '')),
+                                            '","character_maximum_length":"', COALESCE(cols.character_maximum_length::TEXT, 'null'),
+                                            '","precision":',
+                                                CASE
+                                                    WHEN cols.data_type = 'numeric' OR cols.data_type = 'decimal'
+                                                    THEN CONCAT('{"precision":', COALESCE(cols.numeric_precision::TEXT, 'null'),
+                                                                ',"scale":', COALESCE(cols.numeric_scale::TEXT, 'null'), '}')
+                                                    ELSE 'null'
+                                                END,
+                                            ',"nullable":', CASE WHEN (cols.IS_NULLABLE = 'YES') THEN true ELSE false END::TEXT,
+                                            ',"default":"', COALESCE(replace(replace(cols.column_default::TEXT, '"', '\\"'), '\\x', '\\\\x'), ''),
+                                            '","collation":"', COALESCE(cols.COLLATION_NAME::TEXT, ''),
+                                            '","comment":"', COALESCE(replace(replace(dsc.description::TEXT, '"', '\\"'), '\\x', '\\\\x'), ''),
+                                            '","is_identity":', CASE 
+                                                WHEN cols.is_identity = 'YES' THEN 'true'
+                                                WHEN cols.column_default IS NOT NULL AND cols.column_default LIKE 'nextval(%' THEN 'true'
+                                                WHEN cols.column_default LIKE 'unique_rowid()%' THEN 'true'
+                                                ELSE 'false'
+                                            END,
+                                            '}')), ',') AS cols_metadata
+    FROM information_schema.columns cols
+    LEFT JOIN pg_catalog.pg_class c
+        ON c.relname = cols.table_name
+    JOIN pg_catalog.pg_namespace n
+        ON n.oid = c.relnamespace AND n.nspname = cols.table_schema
+    LEFT JOIN pg_catalog.pg_description dsc ON dsc.objoid = c.oid
+                                        AND dsc.objsubid = cols.ordinal_position
+    WHERE cols.table_schema NOT IN ('information_schema', 'pg_catalog')
+          AND cols.table_schema NOT IN ('pg_extension', 'crdb_internal')
+)
+SELECT CONCAT('{"fk_info": [', COALESCE(fk_metadata, ''),
+                    '], "pk_info": [', COALESCE(pk_metadata, ''),
+                    '], "columns": [', COALESCE(cols_metadata, ''),
+                    '], "indexes": [', COALESCE(indexes_metadata, ''),
+                    '], "tables":[', COALESCE(tbls_metadata, ''),
+                    '], "views":[', COALESCE(views_metadata, ''),
+                    '], "database_name": "', CURRENT_DATABASE(), '', '", "version": "', '',
+              '"}') AS metadata_json_to_import
+FROM fk_info, pk_info, cols, indexes_metadata, tbls, config, views;
+```
+
+### CockroachDB-Specific Filters
+
+The query filters out CockroachDB internal schemas:
+
+```sql
+AND connamespace::regnamespace::text NOT IN ('pg_extension', 'crdb_internal')
+```
+
+Filters are applied to:
+- Foreign keys
+- Primary keys  
+- Columns
+- Indexes
+- Tables
+- Views
+
+### What the Smart Query Retrieves
+
+Same as PostgreSQL, plus:
+
+<AccordionGroup>
+  <Accordion title="Identity Columns">
+    Detects CockroachDB's `unique_rowid()` function as identity:
+    ```sql
+    WHEN cols.column_default LIKE 'unique_rowid()%' THEN 'true'
+    ```
+  </Accordion>
+
+  <Accordion title="System Schema Filtering">
+    Excludes CockroachDB system schemas:
+    - `crdb_internal`: Internal CockroachDB tables
+    - `pg_extension`: PostgreSQL extension tables
+  </Accordion>
+</AccordionGroup>
+
+## SQL Import/Export
+
+CockroachDB uses PostgreSQL-compatible SQL syntax.
+
+### Import Features
+
+All PostgreSQL import features work, including:
+
+- CREATE TABLE with all PostgreSQL syntax
+- Serial types (serial, bigserial, smallserial)
+- ENUM types
+- Arrays
+- JSONB
+- Foreign keys and constraints
+- Indexes
+- Views
+- Multi-schema support
+
+### CockroachDB-Specific Syntax
+
+**unique_rowid() Function**:
+```sql
+CREATE TABLE events (
+    id INT DEFAULT unique_rowid() PRIMARY KEY,
+    data JSONB
+);
+```
+
+**STORING Clause for Indexes**:
+```sql
+CREATE INDEX idx_user_email ON users(user_id) STORING (email);
+```
+
+**INTERLEAVE Tables** (deprecated in v21.2):
+```sql
+-- Legacy syntax, avoid in new schemas
+CREATE TABLE children (
+    parent_id INT,
+    child_id INT,
+    PRIMARY KEY (parent_id, child_id)
+) INTERLEAVE IN PARENT parents (parent_id);
+```
+
+### Export Example
+
+```sql
+CREATE SCHEMA IF NOT EXISTS "app";
+
+CREATE TABLE "app"."users" (
+    "id" bigserial NOT NULL,
+    "email" varchar(255) NOT NULL UNIQUE,
+    "username" varchar(100) NOT NULL,
+    "metadata" jsonb DEFAULT '{}'::jsonb,
+    "created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY ("id")
+);
+
+CREATE TABLE "app"."posts" (
+    "id" INT DEFAULT unique_rowid() PRIMARY KEY,
+    "user_id" bigint NOT NULL,
+    "title" varchar(255) NOT NULL,
+    "content" text,
+    "published" boolean DEFAULT false
+);
+
+-- Foreign key constraints
+ALTER TABLE "app"."posts" ADD CONSTRAINT "fk_posts_user_id_users_id" 
+    FOREIGN KEY("user_id") REFERENCES "app"."users"("id") ON DELETE CASCADE;
+
+-- Index with STORING clause
+CREATE INDEX "posts_user_id_idx" ON "app"."posts"("user_id") STORING ("title");
+```
+
+## CockroachDB-Specific Features
+
+### Distributed Architecture
+
+CockroachDB's distributed nature affects schema design:
+
+**Primary Keys**:
+- Should avoid sequential values for better distribution
+- Use UUID or `unique_rowid()` instead of `serial`
+
+```sql
+-- Better for CockroachDB
+id UUID DEFAULT gen_random_uuid() PRIMARY KEY
+
+-- Or
+id INT DEFAULT unique_rowid() PRIMARY KEY
+
+-- Avoid for distributed performance
+id SERIAL PRIMARY KEY  -- Can cause hot spots
+```
+
+### Secondary Indexes
+
+CockroachDB indexes can store extra columns:
+
+```sql
+CREATE INDEX idx_users_email 
+ON users(email) 
+STORING (username, created_at);
+```
+
+Benefits:
+- Covering indexes for better query performance
+- No need to access table data
+- Faster reads at the cost of more storage
+
+### JSONB Support
+
+Full PostgreSQL-compatible JSONB:
+
+```sql
+CREATE TABLE events (
+    id UUID PRIMARY KEY,
+    data JSONB,
+    user_id INT
+);
+
+CREATE INVERTED INDEX events_data_idx ON events(data);
+```
+
+### Computed Columns
+
+```sql
+CREATE TABLE orders (
+    id INT PRIMARY KEY,
+    amount DECIMAL(10,2),
+    tax DECIMAL(10,2),
+    total DECIMAL(10,2) AS (amount + tax) STORED
+);
+```
+
+### Multi-Region Features
+
+CockroachDB supports multi-region deployments:
+
+```sql
+ALTER DATABASE app SET PRIMARY REGION "us-east";
+ALTER DATABASE app ADD REGION "us-west";
+ALTER DATABASE app ADD REGION "eu-west";
+
+CREATE TABLE global_users (
+    id UUID PRIMARY KEY,
+    email TEXT
+) LOCALITY GLOBAL;
+
+CREATE TABLE regional_data (
+    id UUID PRIMARY KEY,
+    region TEXT,
+    data JSONB
+) LOCALITY REGIONAL BY ROW;
+```
+
+<Note>
+Multi-region syntax is not captured by the Smart Query but can be documented in comments.
+</Note>
+
+## PostgreSQL Compatibility
+
+CockroachDB aims for PostgreSQL compatibility but has some differences:
+
+### Supported PostgreSQL Features
+
+- Most PostgreSQL data types
+- Serial types (but avoid for distributed performance)
+- JSONB and JSON operators
+- Arrays
+- ENUMs
+- Foreign keys
+- CHECK constraints
+- Views
+- CTEs and window functions
+
+### Unsupported Features
+
+- Stored procedures (use user-defined functions instead)
+- Triggers (use change data capture)
+- Some PostgreSQL extensions
+- SEQUENCE with all PostgreSQL options
+- Table inheritance
+- Temporary tables (session-based only)
+
+### Differences to Note
+
+<AccordionGroup>
+  <Accordion title="Transaction Retries">
+    CockroachDB may retry transactions. Use client-side retry logic or savepoints.
+  </Accordion>
+
+  <Accordion title="Serializable Isolation">
+    Default isolation level is SERIALIZABLE (stricter than PostgreSQL's READ COMMITTED).
+  </Accordion>
+
+  <Accordion title="Clock Skew">
+    Distributed transactions may observe different timestamps. Use cluster time for ordering.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use UUID for primary keys">
+    Avoid sequential IDs to prevent hot spots in distributed clusters
+    ```sql
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY
+    ```
+  </Step>
+  
+  <Step title="Add STORING clauses to indexes">
+    Create covering indexes for better read performance
+  </Step>
+  
+  <Step title="Design for horizontal scaling">
+    Choose partition keys that distribute data evenly
+  </Step>
+  
+  <Step title="Use computed columns">
+    Leverage STORED computed columns for denormalization
+  </Step>
+  
+  <Step title="Leverage JSONB">
+    Use JSONB with inverted indexes for flexible schema evolution
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Query returns internal tables">
+    The Smart Query should filter out `crdb_internal` and `pg_extension` schemas. If you see them, check the query filters.
+  </Accordion>
+
+  <Accordion title="Transaction retry errors">
+    CockroachDB may return retry errors. Implement client-side retry logic or use savepoints:
+    ```sql
+    SAVEPOINT cockroach_restart;
+    -- your transaction
+    RELEASE SAVEPOINT cockroach_restart;
+    ```
+  </Accordion>
+
+  <Accordion title="Slow sequential scans">
+    Create appropriate secondary indexes or use STORING clauses for covering indexes.
+  </Accordion>
+
+  <Accordion title="Hot spot issues">
+    Avoid sequential primary keys. Use UUID or `unique_rowid()` for better distribution.
+  </Accordion>
+</AccordionGroup>
+
+## Migration from PostgreSQL
+
+Migrating from PostgreSQL to CockroachDB:
+
+<Steps>
+  <Step title="Export schema from PostgreSQL">
+    Use ChartDB to export your PostgreSQL schema
+  </Step>
+  
+  <Step title="Review compatibility">
+    Check for unsupported features (triggers, stored procedures, etc.)
+  </Step>
+  
+  <Step title="Update primary keys">
+    Change `SERIAL` to `UUID` or `unique_rowid()` where appropriate
+  </Step>
+  
+  <Step title="Add STORING clauses">
+    Optimize indexes with STORING for read performance
+  </Step>
+  
+  <Step title="Import to CockroachDB">
+    Apply the modified schema to CockroachDB
+  </Step>
+</Steps>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="CockroachDB Docs" icon="book" href="https://www.cockroachlabs.com/docs/">
+    Official CockroachDB documentation
+  </Card>
+  <Card title="PostgreSQL Compatibility" icon="check-double" href="https://www.cockroachlabs.com/docs/stable/postgresql-compatibility">
+    PostgreSQL feature compatibility matrix
+  </Card>
+  <Card title="Best Practices" icon="star" href="https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview">
+    CockroachDB performance best practices
+  </Card>
+  <Card title="Multi-Region" icon="globe" href="https://www.cockroachlabs.com/docs/stable/multiregion-overview">
+    Multi-region deployment guide
+  </Card>
+</CardGroup>

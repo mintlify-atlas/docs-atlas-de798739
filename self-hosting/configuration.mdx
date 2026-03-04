@@ -1,0 +1,500 @@
+---
+title: 'Configuration'
+description: 'Complete guide to configuring ChartDB for your environment'
+icon: 'sliders'
+---
+
+ChartDB can be configured through environment variables at both build time and runtime. This guide covers all available configuration options.
+
+## Environment Variables
+
+ChartDB uses Vite for building, which means environment variables are handled differently at build time versus runtime.
+
+### Build-Time vs Runtime
+
+<Tabs>
+  <Tab title="Build Time">
+    Build-time variables are embedded into the compiled JavaScript during the build process. They are prefixed with `VITE_`:
+
+    ```bash
+    # NPM build
+    VITE_OPENAI_API_KEY=sk-your-key npm run build
+
+    # Docker build
+    docker build --build-arg VITE_OPENAI_API_KEY=sk-your-key -t chartdb .
+    ```
+
+    <Note>
+    Build-time configuration is permanent and cannot be changed without rebuilding the application.
+    </Note>
+  </Tab>
+  
+  <Tab title="Runtime">
+    Runtime variables can be changed when starting the application without rebuilding. In Docker, these are injected by the entrypoint script:
+
+    ```bash
+    # NPM dev server
+    VITE_OPENAI_API_KEY=sk-your-key npm run dev
+
+    # Docker run
+    docker run -e OPENAI_API_KEY=sk-your-key -p 8080:80 chartdb
+    ```
+
+    <Info>
+    Runtime configuration in Docker uses the same variable names **without** the `VITE_` prefix. The entrypoint script handles the mapping.
+    </Info>
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+### AI Configuration
+
+Configure AI features for DDL script generation and intelligent operations.
+
+#### OpenAI API Key
+
+Use OpenAI's GPT models for AI features:
+
+<CodeGroup>
+```bash Docker
+docker run -e OPENAI_API_KEY=sk-proj-your-key-here -p 8080:80 chartdb
+```
+
+```bash NPM
+VITE_OPENAI_API_KEY=sk-proj-your-key-here npm run dev
+```
+
+```bash Docker Build
+docker build --build-arg VITE_OPENAI_API_KEY=sk-proj-your-key-here -t chartdb .
+```
+</CodeGroup>
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `OPENAI_API_KEY` | string | Your OpenAI API key (starts with `sk-`) |
+| `VITE_OPENAI_API_KEY` | string | Build-time version |
+
+#### Custom Inference Server
+
+Use a custom LLM inference server compatible with OpenAI's API format:
+
+<CodeGroup>
+```bash Docker
+docker run \
+  -e OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -p 8080:80 chartdb
+```
+
+```bash NPM
+VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+npm run dev
+```
+
+```bash Docker Build
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -t chartdb .
+```
+</CodeGroup>
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `OPENAI_API_ENDPOINT` | string | Custom inference server URL (must end with `/v1`) |
+| `VITE_OPENAI_API_ENDPOINT` | string | Build-time version |
+| `LLM_MODEL_NAME` | string | Model identifier for the custom server |
+| `VITE_LLM_MODEL_NAME` | string | Build-time version |
+
+<Warning>
+You must configure **either** `OPENAI_API_KEY` **OR** the combination of `OPENAI_API_ENDPOINT` + `LLM_MODEL_NAME`. Do not mix both configurations.
+</Warning>
+
+#### Supported LLM Servers
+
+ChartDB works with any OpenAI-compatible API. Popular options include:
+
+<CardGroup cols={2}>
+  <Card title="vLLM" icon="server">
+    High-performance inference server for large language models
+    
+    ```bash
+    http://localhost:8000/v1
+    ```
+  </Card>
+  <Card title="LocalAI" icon="laptop">
+    Drop-in replacement API for running LLMs locally
+    
+    ```bash
+    http://localhost:8080/v1
+    ```
+  </Card>
+  <Card title="Ollama" icon="brain">
+    Easy-to-use local LLM server with OpenAI-compatible endpoints
+    
+    ```bash
+    http://localhost:11434/v1
+    ```
+  </Card>
+  <Card title="LM Studio" icon="desktop">
+    Desktop application for running LLMs with API server
+    
+    ```bash
+    http://localhost:1234/v1
+    ```
+  </Card>
+</CardGroup>
+
+### UI Configuration
+
+#### Hide ChartDB Cloud
+
+Remove references to ChartDB Cloud for a fully self-hosted experience:
+
+<CodeGroup>
+```bash Docker
+docker run -e HIDE_CHARTDB_CLOUD=true -p 8080:80 chartdb
+```
+
+```bash NPM
+VITE_HIDE_CHARTDB_CLOUD=true npm run dev
+```
+
+```bash Docker Build
+docker build --build-arg VITE_HIDE_CHARTDB_CLOUD=true -t chartdb .
+```
+</CodeGroup>
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `HIDE_CHARTDB_CLOUD` | boolean | `false` | Hides ChartDB Cloud branding and links |
+| `VITE_HIDE_CHARTDB_CLOUD` | boolean | `false` | Build-time version |
+
+When enabled, this removes:
+- ChartDB Cloud promotional banners
+- Links to the hosted version
+- Cloud-specific UI elements
+
+### Analytics Configuration
+
+#### Disable Analytics
+
+ChartDB includes privacy-focused analytics via Fathom Analytics. You can disable this:
+
+<CodeGroup>
+```bash Docker
+docker run -e DISABLE_ANALYTICS=true -p 8080:80 chartdb
+```
+
+```bash NPM
+VITE_DISABLE_ANALYTICS=true npm run dev
+```
+
+```bash Docker Build
+docker build --build-arg VITE_DISABLE_ANALYTICS=true -t chartdb .
+```
+</CodeGroup>
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `DISABLE_ANALYTICS` | boolean | `false` | Completely disables Fathom Analytics |
+| `VITE_DISABLE_ANALYTICS` | boolean | `false` | Build-time version |
+
+<Info>
+ChartDB uses Fathom Analytics, which is privacy-focused and GDPR compliant. No personal data is collected. However, you can disable it entirely for internal deployments.
+</Info>
+
+### Internal Configuration
+
+These variables are used internally and generally don't need to be changed:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `VITE_IS_CHARTDB_IO` | boolean | Identifies the official ChartDB.io deployment |
+| `VITE_APP_URL` | string | Application URL for canonical links |
+| `VITE_HOST_URL` | string | Host URL for API requests |
+
+## Configuration Examples
+
+### Minimal Setup
+
+Basic ChartDB deployment without AI features:
+
+```bash
+docker run -p 8080:80 ghcr.io/chartdb/chartdb:latest
+```
+
+### OpenAI Integration
+
+Full-featured setup with OpenAI:
+
+```bash
+docker run \
+  -e OPENAI_API_KEY=sk-proj-your-key-here \
+  -e DISABLE_ANALYTICS=true \
+  -p 8080:80 \
+  ghcr.io/chartdb/chartdb:latest
+```
+
+### Self-Hosted with Local LLM
+
+Complete self-hosted setup with local vLLM:
+
+```bash
+docker build \
+  --build-arg VITE_OPENAI_API_ENDPOINT=http://localhost:8000/v1 \
+  --build-arg VITE_LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  --build-arg VITE_HIDE_CHARTDB_CLOUD=true \
+  --build-arg VITE_DISABLE_ANALYTICS=true \
+  -t chartdb-selfhosted .
+
+docker run \
+  -e OPENAI_API_ENDPOINT=http://host.docker.internal:8000/v1 \
+  -e LLM_MODEL_NAME=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  -e HIDE_CHARTDB_CLOUD=true \
+  -e DISABLE_ANALYTICS=true \
+  -p 8080:80 \
+  chartdb-selfhosted
+```
+
+### Enterprise Setup
+
+Production-ready configuration:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  chartdb:
+    image: ghcr.io/chartdb/chartdb:latest
+    container_name: chartdb
+    ports:
+      - "8080:80"
+    environment:
+      # AI Configuration (choose one)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # OR use custom inference server:
+      # - OPENAI_API_ENDPOINT=${OPENAI_API_ENDPOINT}
+      # - LLM_MODEL_NAME=${LLM_MODEL_NAME}
+      
+      # UI Configuration
+      - HIDE_CHARTDB_CLOUD=true
+      
+      # Privacy Configuration
+      - DISABLE_ANALYTICS=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+## Configuration File Reference
+
+### package.json Scripts
+
+ChartDB's `package.json` includes several build and development scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "vite",                              // Start development server
+    "build": "npm run lint && tsc -b && vite build",  // Production build
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "preview": "vite preview",                  // Preview production build
+    "test": "vitest",
+    "test:ci": "vitest run --reporter=verbose --bail=1",
+    "test:coverage": "vitest --coverage"
+  }
+}
+```
+
+### Dockerfile Build Arguments
+
+The Dockerfile accepts these build arguments:
+
+```dockerfile
+ARG VITE_OPENAI_API_KEY           # OpenAI API key
+ARG VITE_OPENAI_API_ENDPOINT      # Custom inference endpoint
+ARG VITE_LLM_MODEL_NAME           # Custom model name
+ARG VITE_HIDE_CHARTDB_CLOUD       # Hide cloud references
+ARG VITE_DISABLE_ANALYTICS        # Disable analytics
+```
+
+### Nginx Configuration
+
+ChartDB uses a custom Nginx configuration template that dynamically injects environment variables:
+
+```nginx
+location /config.js {
+    default_type application/javascript;
+    return 200 "window.env = {
+        OPENAI_API_KEY: \"$OPENAI_API_KEY\",
+        OPENAI_API_ENDPOINT: \"$OPENAI_API_ENDPOINT\",
+        LLM_MODEL_NAME: \"$LLM_MODEL_NAME\",
+        HIDE_CHARTDB_CLOUD: \"$HIDE_CHARTDB_CLOUD\",
+        DISABLE_ANALYTICS: \"$DISABLE_ANALYTICS\"
+    };";
+}
+```
+
+This allows runtime configuration in Docker without rebuilding.
+
+## Environment Variable Loading
+
+ChartDB loads environment variables in the following order (later sources override earlier ones):
+
+<Steps>
+  <Step title="Build-time variables">
+    Variables prefixed with `VITE_` are embedded during `npm run build`
+  </Step>
+  <Step title="Docker build arguments">
+    `--build-arg` values are passed to the build stage
+  </Step>
+  <Step title="Docker runtime environment">
+    `-e` flags set environment variables in the container
+  </Step>
+  <Step title="Nginx runtime injection">
+    The entrypoint script creates `/config.js` with current values
+  </Step>
+  <Step title="Application runtime">
+    ChartDB reads from `window.env` (runtime) or `import.meta.env` (build-time)
+  </Step>
+</Steps>
+
+### Code Reference
+
+Environment variables are loaded in `src/lib/env.ts`:
+
+```typescript
+export const OPENAI_API_KEY: string = import.meta.env.VITE_OPENAI_API_KEY;
+export const OPENAI_API_ENDPOINT: string = import.meta.env.VITE_OPENAI_API_ENDPOINT;
+export const LLM_MODEL_NAME: string = import.meta.env.VITE_LLM_MODEL_NAME;
+export const HIDE_CHARTDB_CLOUD: boolean =
+    (window?.env?.HIDE_CHARTDB_CLOUD ?? import.meta.env.VITE_HIDE_CHARTDB_CLOUD) === 'true';
+export const DISABLE_ANALYTICS: boolean =
+    (window?.env?.DISABLE_ANALYTICS ?? import.meta.env.VITE_DISABLE_ANALYTICS) === 'true';
+```
+
+<Info>
+Notice how `HIDE_CHARTDB_CLOUD` and `DISABLE_ANALYTICS` check `window.env` first (runtime) before falling back to `import.meta.env` (build-time). This enables Docker runtime configuration.
+</Info>
+
+## Validation
+
+### Check Current Configuration
+
+Verify your configuration is loaded correctly:
+
+```bash
+# In Docker container
+docker exec <container-id> cat /etc/nginx/conf.d/default.conf
+
+# Check environment variables
+docker exec <container-id> env | grep -E 'OPENAI|LLM|HIDE|DISABLE'
+
+# Test config.js endpoint
+curl http://localhost:8080/config.js
+```
+
+### Debug Configuration Issues
+
+<AccordionGroup>
+  <Accordion title="Variables not taking effect">
+    Ensure you're using the correct variable names:
+    - **Build time**: Use `VITE_` prefix with `--build-arg`
+    - **Runtime**: No prefix with `-e` flag
+    
+    Check the application code at `src/lib/env.ts:1-15` to see how variables are loaded.
+  </Accordion>
+
+  <Accordion title="AI features not working">
+    Verify your AI configuration:
+    
+    ```bash
+    # Check if API key is set
+    docker exec <container-id> env | grep OPENAI_API_KEY
+    
+    # Or check custom endpoint
+    docker exec <container-id> env | grep -E 'OPENAI_API_ENDPOINT|LLM_MODEL_NAME'
+    ```
+    
+    Remember: Use **either** `OPENAI_API_KEY` **or** `OPENAI_API_ENDPOINT` + `LLM_MODEL_NAME`, not both.
+  </Accordion>
+
+  <Accordion title="Build-time variables not working">
+    Ensure you're using `--build-arg` (not `-e`) and the `VITE_` prefix:
+    
+    ```bash
+    # Correct
+    docker build --build-arg VITE_OPENAI_API_KEY=sk-key -t chartdb .
+    
+    # Incorrect
+    docker build -e OPENAI_API_KEY=sk-key -t chartdb .
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+<Warning>
+**Never commit sensitive values to version control**
+
+- Don't hardcode API keys in configuration files
+- Don't commit `.env` files with secrets
+- Use environment variables or secret management systems
+- Rotate API keys regularly
+</Warning>
+
+### Best Practices
+
+<Steps>
+  <Step title="Use runtime environment variables">
+    Prefer runtime configuration over build-time for sensitive values:
+    
+    ```bash
+    # Good: Runtime configuration
+    docker run -e OPENAI_API_KEY=sk-key chartdb
+    
+    # Less secure: Build-time configuration
+    docker build --build-arg VITE_OPENAI_API_KEY=sk-key -t chartdb .
+    ```
+  </Step>
+  
+  <Step title="Use secret management">
+    For production, use Docker secrets or environment variable files:
+    
+    ```yaml
+    services:
+      chartdb:
+        environment:
+          - OPENAI_API_KEY=${OPENAI_API_KEY}
+        env_file:
+          - .env.production
+    ```
+  </Step>
+  
+  <Step title="Restrict API key permissions">
+    Create API keys with minimal required permissions for ChartDB's AI features
+  </Step>
+  
+  <Step title="Monitor API usage">
+    Set up billing alerts and usage monitoring for external API services
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/self-hosting/docker">
+    Learn how to deploy ChartDB with Docker
+  </Card>
+  <Card title="AI Setup" icon="brain" href="/self-hosting/ai-setup">
+    Detailed guide to configuring AI features
+  </Card>
+</CardGroup>
