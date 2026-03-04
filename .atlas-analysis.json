@@ -1,0 +1,125 @@
+{
+  "projectType": "saas",
+  "projectName": "ChartDB",
+  "projectDescription": "Open-source database diagrams editor that visualizes and designs database schemas with a single query.",
+  "theme": "palm",
+  "primaryColor": "#5ebb7b",
+  "lightColor": "#eebc78",
+  "darkColor": "#273233",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/import-methods",
+              "features/smart-query",
+              "features/ddl-import",
+              "features/dbml-import",
+              "features/diagram-editor",
+              "features/export-options",
+              "features/ai-migration"
+            ]
+          },
+          {
+            "group": "Database Support",
+            "pages": [
+              "databases/overview",
+              "databases/postgresql",
+              "databases/mysql",
+              "databases/sql-server",
+              "databases/mariadb",
+              "databases/sqlite",
+              "databases/clickhouse",
+              "databases/cockroachdb",
+              "databases/oracle"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-diagrams",
+              "guides/editing-schema",
+              "guides/managing-relationships",
+              "guides/using-areas",
+              "guides/adding-notes",
+              "guides/keyboard-shortcuts",
+              "guides/templates"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/docker",
+              "self-hosting/configuration",
+              "self-hosting/ai-setup"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Types",
+            "pages": [
+              "api/diagram",
+              "api/database-types",
+              "api/table",
+              "api/field",
+              "api/relationship",
+              "api/index"
+            ]
+          },
+          {
+            "group": "Import & Export",
+            "pages": [
+              "api/import-metadata",
+              "api/sql-import",
+              "api/sql-export",
+              "api/dbml"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Instant schema import via Smart Query (JSON metadata)",
+    "Visual database diagram editor with drag-and-drop",
+    "Support for 9 database types (PostgreSQL, MySQL, SQL Server, MariaDB, SQLite, ClickHouse, CockroachDB, Oracle)",
+    "Multiple import methods: Smart Query, DDL scripts, DBML",
+    "AI-powered DDL export for cross-database migration",
+    "Interactive canvas with tables, relationships, areas, and sticky notes",
+    "DBML import/export for diagram interchange",
+    "Template library with pre-built diagrams",
+    "Local storage with no account required",
+    "Keyboard shortcuts for power users",
+    "Docker deployment with OpenAI integration"
+  ],
+  "publicApiSurface": [
+    "DatabaseType enum (postgresql, mysql, sql_server, mariadb, sqlite, clickhouse, cockroachdb, oracle)",
+    "Diagram interface (tables, relationships, dependencies, areas, customTypes, notes)",
+    "DBTable interface (name, schema, fields, indexes, color, isView)",
+    "DBField interface (name, type, primaryKey, unique, nullable, default, comment)",
+    "DBRelationship interface (sourceTableId, targetTableId, cardinality, updateRule, deleteRule)",
+    "DBIndex interface (name, unique, fields)",
+    "Area interface (name, x, y, width, height, color)",
+    "Note interface (content, x, y, width, height, color)",
+    "Import methods: importMetadata(), importDDL(), importDBML()",
+    "Export methods: exportSQL(), exportDBML(), exportImage()",
+    "DBML parser and generator",
+    "SQL parser for multiple dialects",
+    "Database metadata extraction queries"
+  ]
+}
